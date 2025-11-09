@@ -7,13 +7,13 @@ import (
 )
 
 // инфа о повторяющейся транзакции
-type Rtract struct {
+type RTract struct {
 	Amount float64
 	Desc   string
-	RRule  rrule.RRule
+	RRule  *rrule.RRule
 }
 
-type BudgetInfo struct {
+type BalanceRecord struct {
 	Amount float64
 	Date   time.Time
 }

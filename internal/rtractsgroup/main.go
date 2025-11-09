@@ -25,32 +25,40 @@ func (a RTractsGroup) Less(i, j int) bool {
 	return a[i].temp.Before(a[j].temp)
 }
 
+// генератор дат повторяющейся транзакции
 type rTractGenInfo struct {
-	models.Rtract
+	*models.RTract
 	gen  rrule.Next
 	temp time.Time
 	ok   bool
 }
 
+// сгенерировать следующую дату и обновить state
 func (v *rTractGenInfo) moveToNext() {
 	v.temp, v.ok = v.gen()
 }
 
-type RTract struct {
-	models.Rtract
+// одна из дат, когда происходит повторяющаяся транзакция и инфа о последней
+type RTractInstance struct {
+	*models.RTract
 	Date time.Time
 }
 
-func New(rtracts []models.Rtract, dtstart time.Time) RTractsGroup {
+func New(rtracts []*models.RTract, dtstart time.Time) RTractsGroup {
 	rgroup := make(RTractsGroup, len(rtracts))
 
 	for i, rtract := range rtracts {
-		rtract.RRule.DTStart(dtstart)
+		rruleCopy := *rtract.RRule
+		rruleCopy.DTStart(rruleCopy.After(dtstart, true))
+
+		rtractCopy := *rtract
+		rtractCopy.RRule = &rruleCopy
+
 		gen := rtract.RRule.Iterator()
 		temp, ok := gen()
 
 		rgroup[i] = &rTractGenInfo{
-			Rtract: rtract,
+			RTract: &rtractCopy,
 			gen:    gen,
 			temp:   temp,
 			ok:     ok,
@@ -60,7 +68,7 @@ func New(rtracts []models.Rtract, dtstart time.Time) RTractsGroup {
 	return rgroup
 }
 
-func (v RTractsGroup) Next() (rtract RTract, ok bool) {
+func (v RTractsGroup) Next() (rtract *RTractInstance, ok bool) {
 	// отсортировать, чтобы первой оказалась транзакция с наименьшей датой
 	sort.Sort(v)
 	nextTract := v[0]
@@ -71,8 +79,8 @@ func (v RTractsGroup) Next() (rtract RTract, ok bool) {
 		return
 	}
 
-	rtract = RTract{
-		Rtract: nextTract.Rtract,
+	rtract = &RTractInstance{
+		RTract: nextTract.RTract,
 		Date:   nextTract.temp,
 	}
 	// сгенерить и перейти к следующей дате до завершения итератора, чтобы продолжить с нужного места при повторном создании итератора
@@ -81,8 +89,8 @@ func (v RTractsGroup) Next() (rtract RTract, ok bool) {
 	return
 }
 
-func (v RTractsGroup) All() iter.Seq[RTract] {
-	return func(yield func(RTract) bool) {
+func (v RTractsGroup) All() iter.Seq[*RTractInstance] {
+	return func(yield func(*RTractInstance) bool) {
 		for {
 			rtract, ok := v.Next()
 			if !ok || !yield(rtract) {
