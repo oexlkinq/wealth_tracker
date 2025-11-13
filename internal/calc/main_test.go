@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/oexlkinq/wealth_tracker/internal/calc"
-	"github.com/oexlkinq/wealth_tracker/internal/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/teambition/rrule-go"
 )

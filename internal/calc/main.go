@@ -1,19 +1,30 @@
 package calc
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"iter"
 	"maps"
 	"time"
 
-	"github.com/oexlkinq/wealth_tracker/internal/models"
-	"github.com/oexlkinq/wealth_tracker/internal/rtractsgroup"
+	"github.com/oexlkinq/wealth_tracker/internal/db_api"
+	"github.com/oexlkinq/wealth_tracker/internal/itergroup"
 )
 
 const maxTractsCount = 1000
 
-func CalcTargetsReachInfo(rtracts []*models.RTract, balanceRecord models.BalanceRecord, targets []*models.Target) (targetReachInfoStructs []*TargetReachInfo, tooManyTracts bool) {
-	rtgroup := rtractsgroup.New(rtracts, balanceRecord.Date)
-	targetReachInfoStructs = prepareTargets(targets)
+var TooManyTractsError = errors.New("too many tracts")
+
+func CalcTargetsReachInfo(ctx context.Context, qtx *db_api.Queries, tracts itergroup.TractsIterGroup, balanceRecord db_api.BalanceRecord, targets []db_api.Target) ([]*TargetReachInfo, error) {
+	ig, err := itergroup.New(ctx, qtx, balanceRecord.Date)
+	if err != nil {
+		return nil, err
+	}
+	next, stop := iter.Pull(ig.All())
+	defer stop()
+
+	targetReachInfoStructs := prepareTargets(targets)
 
 	tractsCount := 0
 	for _, targetReachInfo := range targetReachInfoStructs {
@@ -34,11 +45,10 @@ func CalcTargetsReachInfo(rtracts []*models.RTract, balanceRecord models.Balance
 			}
 
 			if tractsCount > maxTractsCount {
-				tooManyTracts = true
-				return
+				return nil, TooManyTractsError
 			}
 
-			rtract, ok := rtgroup.Next()
+			tract, ok := next()
 			// если кончились транзакции
 			if !ok {
 				targetReachInfo.ReachedAmount = balanceRecord.Amount
@@ -47,20 +57,20 @@ func CalcTargetsReachInfo(rtracts []*models.RTract, balanceRecord models.Balance
 
 				// TODO: убрать отладочный вывод
 				fmt.Println(targetReachInfo, balanceRecord.Amount)
-				return
+				return targetReachInfoStructs, nil
 			}
 			tractsCount++
 
-			balanceRecord.Amount += rtract.Amount
-			balanceRecord.Date = rtract.Date
+			balanceRecord.Amount += tract.Amount
+			balanceRecord.Date = tract.Date
 		}
 	}
 
-	return
+	return targetReachInfoStructs, nil
 }
 
 type TargetReachInfo struct {
-	*models.Target
+	db_api.Target
 	ReachDate     time.Time
 	ReachedAmount float64
 	Reached       bool
@@ -71,8 +81,8 @@ func (v *TargetReachInfo) String() string {
 }
 
 // выбирает для каждой очереди цель с максимальной суммой и конвертит в нужный тип
-func prepareTargets(targets []*models.Target) []*TargetReachInfo {
-	order_to_target := make(map[int]*models.Target, len(targets))
+func prepareTargets(targets []db_api.Target) []*TargetReachInfo {
+	order_to_target := make(map[int64]db_api.Target, len(targets))
 	for _, target := range targets {
 		v, ok := order_to_target[target.Order]
 		if !ok || target.Amount > v.Amount {

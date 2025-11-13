@@ -2,27 +2,29 @@
 // versions:
 //   sqlc v1.30.0
 
-package db
+package db_api
 
 import (
 	"database/sql"
+	"time"
 )
 
-type Balance struct {
+type BalanceRecord struct {
 	ID          int64
 	Amount      float64
-	Date        int64
+	Date        time.Time
 	OriginTract sql.NullInt64
 }
 
 type Rtract struct {
-	ID     int64
-	Rrule  string
-	Desc   string
-	Amount float64
+	ID      int64
+	Rrule   string
+	Desc    string
+	Amount  float64
+	ReqsAck bool
 }
 
-type RtractToTract struct {
+type RtractsToTract struct {
 	RtractID int64
 	TractID  int64
 }
@@ -36,10 +38,9 @@ type Target struct {
 }
 
 type Tract struct {
-	ID      int64
-	Type    string
-	Date    int64
-	Amount  float64
-	Ack     bool
-	ReqsAck bool
+	ID     int64
+	Type   string
+	Date   time.Time
+	Amount float64
+	Acked  bool
 }
