@@ -11,7 +11,7 @@ create table if not exists targets (
     amount real not null,
     desc text not null,
     order integer not null,
-    tract_id integer not null references tracts(id)
+    tract_id integer not null references tracts(id) on delete set null on update cascade
 );
 
 create table if not exists rtracts (
@@ -23,13 +23,13 @@ create table if not exists rtracts (
 );
 
 create table if not exists rtracts_to_tracts (
-    rtract_id integer not null references rtracts(id),
-    tract_id integer not null references tracts(id)
+    rtract_id integer not null references rtracts(id) on delete cascade on update cascade,
+    tract_id integer not null references tracts(id) on delete cascade on update cascade
 );
 
 create table if not exists balance_records (
     id integer primary key,
     amount real not null,
     date text not null,
-    origin_tract integer references tracts(id)
+    origin_tract integer references tracts(id) on delete cascade on update cascade
 );

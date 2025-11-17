@@ -2,6 +2,7 @@ package calc
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"iter"
@@ -16,7 +17,18 @@ const maxTractsCount = 1000
 
 var TooManyTractsError = errors.New("too many tracts")
 
-func CalcTargetsReachInfo(ctx context.Context, qtx *db_api.Queries, tracts itergroup.TractsIterGroup, balanceRecord db_api.BalanceRecord, targets []db_api.Target) ([]*TargetReachInfo, error) {
+func CalcTargetsReachInfo(ctx context.Context, db *sql.DB, queries *db_api.Queries, tracts itergroup.TractsIterGroup, balanceRecord db_api.BalanceRecord, targets []db_api.Target) ([]*TargetReachInfo, error) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	tx, err := db.BeginTx(ctx, &sql.TxOptions{})
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Commit()
+
+	qtx := queries.WithTx(tx)
+
 	ig, err := itergroup.New(ctx, qtx, balanceRecord.Date)
 	if err != nil {
 		return nil, err
@@ -31,6 +43,7 @@ func CalcTargetsReachInfo(ctx context.Context, qtx *db_api.Queries, tracts iterg
 		for {
 			// TODO: убрать отладочный вывод
 			fmt.Printf("%3d %s %10.1f\n", tractsCount, balanceRecord.Date, balanceRecord.Amount)
+
 			// если бюджета уже достаточно
 			if balanceRecord.Amount >= targetReachInfo.Amount {
 				balanceRecord.Amount -= targetReachInfo.Amount
@@ -57,6 +70,7 @@ func CalcTargetsReachInfo(ctx context.Context, qtx *db_api.Queries, tracts iterg
 
 				// TODO: убрать отладочный вывод
 				fmt.Println(targetReachInfo, balanceRecord.Amount)
+
 				return targetReachInfoStructs, nil
 			}
 			tractsCount++

@@ -9,6 +9,17 @@ order by date asc;
 select rt.*
 from rtracts rt;
 
+-- name: ListUnreachedTargets :many
+select t.*
+from targets t
+where tract_id is null;
+
+-- name: GetLatestBalanceRecord :one
+select br.*
+from balance_records br
+order by br.date desc, br.amount asc
+limit 1;
+
 -- name: CreateTract :one
 insert into tracts (
     type, date, amount, acked
@@ -34,3 +45,15 @@ insert into balance_records (
 -- name: DeleteBalanceRecordsSince :exec
 delete from balance_records
 where date >= @since;
+
+-- name: DeleteTractsSince :exec
+delete from tracts
+where date >= @since;
+
+-- name: DeleteBalanceRecord :exec
+delete from balance_records
+where id = ?;
+
+-- name: DeleteTract :exec
+delete from tracts
+where id = ?;
