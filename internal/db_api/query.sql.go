@@ -76,14 +76,23 @@ func (q *Queries) CreateTract(ctx context.Context, arg CreateTractParams) (int64
 	return id, err
 }
 
-const deleteBalanceRecordsSince = `-- name: DeleteBalanceRecordsSince :exec
-delete from balance_records
-where date >= ?1
+const getLatestBalanceRecord = `-- name: GetLatestBalanceRecord :one
+select br.id, br.amount, br.date, br.origin_tract
+from balance_records br
+order by br.date desc, br.amount asc
+limit 1
 `
 
-func (q *Queries) DeleteBalanceRecordsSince(ctx context.Context, since time.Time) error {
-	_, err := q.db.ExecContext(ctx, deleteBalanceRecordsSince, since)
-	return err
+func (q *Queries) GetLatestBalanceRecord(ctx context.Context) (BalanceRecord, error) {
+	row := q.db.QueryRowContext(ctx, getLatestBalanceRecord)
+	var i BalanceRecord
+	err := row.Scan(
+		&i.ID,
+		&i.Amount,
+		&i.Date,
+		&i.OriginTract,
+	)
+	return i, err
 }
 
 const listRTracts = `-- name: ListRTracts :many
@@ -106,6 +115,39 @@ func (q *Queries) ListRTracts(ctx context.Context) ([]Rtract, error) {
 			&i.Desc,
 			&i.Amount,
 			&i.ReqsAck,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTargets = `-- name: ListTargets :many
+select id, amount, "desc", "order", tract_id from targets
+`
+
+func (q *Queries) ListTargets(ctx context.Context) ([]Target, error) {
+	rows, err := q.db.QueryContext(ctx, listTargets)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Target
+	for rows.Next() {
+		var i Target
+		if err := rows.Scan(
+			&i.ID,
+			&i.Amount,
+			&i.Desc,
+			&i.Order,
+			&i.TractID,
 		); err != nil {
 			return nil, err
 		}
@@ -148,6 +190,41 @@ func (q *Queries) ListTractsSince(ctx context.Context, arg ListTractsSinceParams
 	for rows.Next() {
 		var i ListTractsSinceRow
 		if err := rows.Scan(&i.Amount, &i.Date); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUnreachedTargets = `-- name: ListUnreachedTargets :many
+select t.id, t.amount, t."desc", t."order", t.tract_id
+from targets t
+where tract_id is null
+`
+
+func (q *Queries) ListUnreachedTargets(ctx context.Context) ([]Target, error) {
+	rows, err := q.db.QueryContext(ctx, listUnreachedTargets)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Target
+	for rows.Next() {
+		var i Target
+		if err := rows.Scan(
+			&i.ID,
+			&i.Amount,
+			&i.Desc,
+			&i.Order,
+			&i.TractID,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

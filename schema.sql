@@ -10,7 +10,7 @@ create table if not exists targets (
     id integer primary key,
     amount real not null,
     desc text not null,
-    order integer not null,
+    "order" integer not null,
     tract_id integer not null references tracts(id) on delete set null on update cascade
 );
 

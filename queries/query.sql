@@ -14,6 +14,9 @@ select t.*
 from targets t
 where tract_id is null;
 
+-- name: ListTargets :many
+select * from targets;
+
 -- name: GetLatestBalanceRecord :one
 select br.*
 from balance_records br
@@ -41,19 +44,3 @@ insert into balance_records (
 ) values (
     ?, ?, ?
 );
-
--- name: DeleteBalanceRecordsSince :exec
-delete from balance_records
-where date >= @since;
-
--- name: DeleteTractsSince :exec
-delete from tracts
-where date >= @since;
-
--- name: DeleteBalanceRecord :exec
-delete from balance_records
-where id = ?;
-
--- name: DeleteTract :exec
-delete from tracts
-where id = ?;

@@ -2,7 +2,6 @@ package calc
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"iter"
@@ -17,19 +16,8 @@ const maxTractsCount = 1000
 
 var TooManyTractsError = errors.New("too many tracts")
 
-func CalcTargetsReachInfo(ctx context.Context, db *sql.DB, queries *db_api.Queries, tracts itergroup.TractsIterGroup, balanceRecord db_api.BalanceRecord, targets []db_api.Target) ([]*TargetReachInfo, error) {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	tx, err := db.BeginTx(ctx, &sql.TxOptions{})
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Commit()
-
-	qtx := queries.WithTx(tx)
-
-	ig, err := itergroup.New(ctx, qtx, balanceRecord.Date)
+func CalcTargetsReachInfo(ctx context.Context, queries *db_api.Queries, balanceRecord db_api.BalanceRecord, targets []db_api.Target) ([]*TargetReachInfo, error) {
+	ig, err := itergroup.New(ctx, queries, balanceRecord.Date)
 	if err != nil {
 		return nil, err
 	}
