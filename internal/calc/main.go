@@ -41,7 +41,7 @@ func CalcTargetsReachInfo(ctx context.Context, queries *db_api.Queries, balanceR
 				targetReachInfo.Reached = true
 
 				// TODO: убрать отладочный вывод
-				fmt.Println(targetReachInfo, balanceRecord.Amount)
+				fmt.Println("break coz reached", targetReachInfo, balanceRecord.Amount)
 				break
 			}
 
@@ -57,7 +57,7 @@ func CalcTargetsReachInfo(ctx context.Context, queries *db_api.Queries, balanceR
 				// targetReachInfo.reached = false
 
 				// TODO: убрать отладочный вывод
-				fmt.Println(targetReachInfo, balanceRecord.Amount)
+				fmt.Println("end coz no next", targetReachInfo, balanceRecord.Amount)
 
 				return targetReachInfoStructs, nil
 			}
@@ -79,7 +79,7 @@ type TargetReachInfo struct {
 }
 
 func (v *TargetReachInfo) String() string {
-	return fmt.Sprintf("{desc: %s, order: %d, reached: %.1f/%.1f, reachDate: %s}", v.Desc, v.Order, v.ReachedAmount, v.Amount, v.ReachDate)
+	return fmt.Sprintf("{desc: %s, order: %d, reached: %.1f/%.1f, reachDate: %s}", v.Desc, v.Order, v.ReachedAmount, v.Amount, v.ReachDate.Format(time.DateOnly))
 }
 
 // выбирает для каждой очереди цель с максимальной суммой и конвертит в нужный тип

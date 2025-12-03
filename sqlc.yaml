@@ -7,10 +7,10 @@ sql:
       go:
         package: "db_api"
         out: "internal/db_api/"
-        overrides:
-          - column: "tracts.date"
-            nullable: false
-            go_type: "time.Time"
-          - column: "balance_records.date"
-            nullable: false
-            go_type: "time.Time"
+        # overrides:
+        #   - column: "tracts.date"
+        #     nullable: false
+        #     go_type: "time.Time"
+        #   - column: "balance_records.date"
+        #     nullable: false
+        #     go_type: "time.Time"

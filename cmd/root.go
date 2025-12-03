@@ -4,14 +4,24 @@ Copyright © 2025 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
-	"database/sql"
+	"context"
 	"fmt"
 	"os"
 
+	"github.com/oexlkinq/wealth_tracker/cmd/balance"
+	"github.com/oexlkinq/wealth_tracker/cmd/rtract"
+	"github.com/oexlkinq/wealth_tracker/cmd/target"
 	"github.com/oexlkinq/wealth_tracker/internal/app"
 	"github.com/oexlkinq/wealth_tracker/internal/calc"
 	"github.com/spf13/cobra"
 )
+
+func init() {
+	rootCmd.AddCommand(balance.BalanceCmd)
+	rootCmd.AddCommand(target.TargetCmd)
+	rootCmd.AddCommand(rtract.RtractCmd)
+	rootCmd.AddCommand(testCmd)
+}
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -19,22 +29,11 @@ var rootCmd = &cobra.Command{
 	Short: "cli unility to track and calculate reach date of wishlist items",
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
-	RunE: func(cmd *cobra.Command, args []string) error {
-		app, err := app.New()
-		if err != nil {
-			return fmt.Errorf("create app: %w", err)
-		}
-
-		ctx := cmd.Context()
-
-		tx, err := app.DB.BeginTx(ctx, &sql.TxOptions{})
-		if err != nil {
-			return fmt.Errorf("begin tx: %w", err)
-		}
-		q := app.Queries.WithTx(tx)
+	RunE: app.MakeCmdRunEFunc(func(cmd *cobra.Command, args []string, ctx context.Context, app *app.App) error {
+		q := app.Queries
 
 		// удалить сгенерированные транзакции. балансы тоже удалятся изза cascade
-		err = q.DeleteGeneratedTracts(ctx)
+		err := q.DeleteGeneratedTracts(ctx)
 		if err != nil {
 			return fmt.Errorf("delete generated tracts: %w", err)
 		}
@@ -60,14 +59,8 @@ var rootCmd = &cobra.Command{
 			fmt.Println(tri)
 		}
 
-		// завершение
-		err = tx.Commit()
-		if err != nil {
-			return fmt.Errorf("commit tx: %w", err)
-		}
-
 		return nil
-	},
+	}),
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

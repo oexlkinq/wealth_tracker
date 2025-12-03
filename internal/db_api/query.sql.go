@@ -7,28 +7,8 @@ package db_api
 
 import (
 	"context"
-	"database/sql"
 	"time"
 )
-
-const createBalanceRecord = `-- name: CreateBalanceRecord :exec
-insert into balance_records (
-    amount, date, origin_tract
-) values (
-    ?, ?, ?
-)
-`
-
-type CreateBalanceRecordParams struct {
-	Amount      float64
-	Date        time.Time
-	OriginTract sql.NullInt64
-}
-
-func (q *Queries) CreateBalanceRecord(ctx context.Context, arg CreateBalanceRecordParams) error {
-	_, err := q.db.ExecContext(ctx, createBalanceRecord, arg.Amount, arg.Date, arg.OriginTract)
-	return err
-}
 
 const createRTractToTract = `-- name: CreateRTractToTract :exec
 insert into rtracts_to_tracts (
@@ -93,73 +73,6 @@ func (q *Queries) GetLatestBalanceRecord(ctx context.Context) (BalanceRecord, er
 		&i.OriginTract,
 	)
 	return i, err
-}
-
-const listRTracts = `-- name: ListRTracts :many
-select rt.id, rt.rrule, rt."desc", rt.amount, rt.reqs_ack
-from rtracts rt
-`
-
-func (q *Queries) ListRTracts(ctx context.Context) ([]Rtract, error) {
-	rows, err := q.db.QueryContext(ctx, listRTracts)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Rtract
-	for rows.Next() {
-		var i Rtract
-		if err := rows.Scan(
-			&i.ID,
-			&i.Rrule,
-			&i.Desc,
-			&i.Amount,
-			&i.ReqsAck,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listTargets = `-- name: ListTargets :many
-select id, amount, "desc", "order", tract_id from targets
-`
-
-func (q *Queries) ListTargets(ctx context.Context) ([]Target, error) {
-	rows, err := q.db.QueryContext(ctx, listTargets)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Target
-	for rows.Next() {
-		var i Target
-		if err := rows.Scan(
-			&i.ID,
-			&i.Amount,
-			&i.Desc,
-			&i.Order,
-			&i.TractID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const listTractsSince = `-- name: ListTractsSince :many
