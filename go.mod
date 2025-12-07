@@ -3,6 +3,7 @@ module github.com/oexlkinq/wealth_tracker
 go 1.25.2
 
 require (
+	github.com/pressly/goose/v3 v3.26.0
 	github.com/spf13/cobra v1.10.1
 	github.com/teambition/rrule-go v1.8.2
 	gopkg.in/yaml.v3 v3.0.1
@@ -16,7 +17,6 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mfridman/interpolate v0.0.2 // indirect
 	github.com/ncruces/go-strftime v0.1.9 // indirect
-	github.com/pressly/goose/v3 v3.26.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/sethvargo/go-retry v0.3.0 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
