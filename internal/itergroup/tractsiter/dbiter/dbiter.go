@@ -5,7 +5,7 @@ import (
 	"iter"
 	"time"
 
-	"github.com/oexlkinq/wealth_tracker/internal/db_api"
+	"github.com/oexlkinq/wealth_tracker/internal/db/db_api"
 )
 
 type DBIter struct {

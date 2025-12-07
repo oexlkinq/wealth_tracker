@@ -10,6 +10,7 @@ import (
 
 	"github.com/oexlkinq/wealth_tracker/cmd/balance"
 	"github.com/oexlkinq/wealth_tracker/cmd/rtract"
+	"github.com/oexlkinq/wealth_tracker/cmd/setup"
 	"github.com/oexlkinq/wealth_tracker/cmd/target"
 	"github.com/oexlkinq/wealth_tracker/internal/app"
 	"github.com/oexlkinq/wealth_tracker/internal/calc"
@@ -20,6 +21,7 @@ func init() {
 	rootCmd.AddCommand(balance.BalanceCmd)
 	rootCmd.AddCommand(target.TargetCmd)
 	rootCmd.AddCommand(rtract.RtractCmd)
+	rootCmd.AddCommand(setup.SetupCmd)
 	rootCmd.AddCommand(testCmd)
 }
 

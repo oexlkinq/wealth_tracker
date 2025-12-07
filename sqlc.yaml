@@ -1,16 +1,9 @@
 version: "2"
 sql:
   - engine: "sqlite"
-    queries: "queries/"
-    schema: "schema.sql"
+    queries: "internal/db/queries/"
+    schema: "internal/db/migrations/"
     gen:
       go:
         package: "db_api"
-        out: "internal/db_api/"
-        # overrides:
-        #   - column: "tracts.date"
-        #     nullable: false
-        #     go_type: "time.Time"
-        #   - column: "balance_records.date"
-        #     nullable: false
-        #     go_type: "time.Time"
+        out: "internal/db/db_api/"

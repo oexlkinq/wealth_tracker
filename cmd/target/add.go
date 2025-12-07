@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/oexlkinq/wealth_tracker/internal/app"
-	"github.com/oexlkinq/wealth_tracker/internal/db_api"
+	"github.com/oexlkinq/wealth_tracker/internal/db/db_api"
 	"github.com/spf13/cobra"
 )
 
