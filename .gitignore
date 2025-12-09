@@ -1,1 +1,4 @@
 /pb_data
+.env
+*.db
+*.db-journal

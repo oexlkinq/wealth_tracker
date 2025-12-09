@@ -7,28 +7,8 @@ package db_api
 
 import (
 	"context"
-	"database/sql"
 	"time"
 )
-
-const createBalanceRecord = `-- name: CreateBalanceRecord :exec
-insert into balance_records (
-    amount, date, origin_tract
-) values (
-    ?, ?, ?
-)
-`
-
-type CreateBalanceRecordParams struct {
-	Amount      float64
-	Date        time.Time
-	OriginTract sql.NullInt64
-}
-
-func (q *Queries) CreateBalanceRecord(ctx context.Context, arg CreateBalanceRecordParams) error {
-	_, err := q.db.ExecContext(ctx, createBalanceRecord, arg.Amount, arg.Date, arg.OriginTract)
-	return err
-}
 
 const createRTractToTract = `-- name: CreateRTractToTract :exec
 insert into rtracts_to_tracts (
@@ -76,48 +56,23 @@ func (q *Queries) CreateTract(ctx context.Context, arg CreateTractParams) (int64
 	return id, err
 }
 
-const deleteBalanceRecordsSince = `-- name: DeleteBalanceRecordsSince :exec
-delete from balance_records
-where date >= ?1
+const getLatestBalanceRecord = `-- name: GetLatestBalanceRecord :one
+select br.id, br.amount, br.date, br.origin_tract
+from balance_records br
+order by br.date desc, br.amount asc
+limit 1
 `
 
-func (q *Queries) DeleteBalanceRecordsSince(ctx context.Context, since time.Time) error {
-	_, err := q.db.ExecContext(ctx, deleteBalanceRecordsSince, since)
-	return err
-}
-
-const listRTracts = `-- name: ListRTracts :many
-select rt.id, rt.rrule, rt."desc", rt.amount, rt.reqs_ack
-from rtracts rt
-`
-
-func (q *Queries) ListRTracts(ctx context.Context) ([]Rtract, error) {
-	rows, err := q.db.QueryContext(ctx, listRTracts)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Rtract
-	for rows.Next() {
-		var i Rtract
-		if err := rows.Scan(
-			&i.ID,
-			&i.Rrule,
-			&i.Desc,
-			&i.Amount,
-			&i.ReqsAck,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+func (q *Queries) GetLatestBalanceRecord(ctx context.Context) (BalanceRecord, error) {
+	row := q.db.QueryRowContext(ctx, getLatestBalanceRecord)
+	var i BalanceRecord
+	err := row.Scan(
+		&i.ID,
+		&i.Amount,
+		&i.Date,
+		&i.OriginTract,
+	)
+	return i, err
 }
 
 const listTractsSince = `-- name: ListTractsSince :many
@@ -148,6 +103,41 @@ func (q *Queries) ListTractsSince(ctx context.Context, arg ListTractsSinceParams
 	for rows.Next() {
 		var i ListTractsSinceRow
 		if err := rows.Scan(&i.Amount, &i.Date); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUnreachedTargets = `-- name: ListUnreachedTargets :many
+select t.id, t.amount, t."desc", t."order", t.tract_id
+from targets t
+where tract_id is null
+`
+
+func (q *Queries) ListUnreachedTargets(ctx context.Context) ([]Target, error) {
+	rows, err := q.db.QueryContext(ctx, listUnreachedTargets)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Target
+	for rows.Next() {
+		var i Target
+		if err := rows.Scan(
+			&i.ID,
+			&i.Amount,
+			&i.Desc,
+			&i.Order,
+			&i.TractID,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

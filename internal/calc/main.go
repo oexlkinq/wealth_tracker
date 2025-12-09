@@ -8,7 +8,7 @@ import (
 	"maps"
 	"time"
 
-	"github.com/oexlkinq/wealth_tracker/internal/db_api"
+	"github.com/oexlkinq/wealth_tracker/internal/db/db_api"
 	"github.com/oexlkinq/wealth_tracker/internal/itergroup"
 )
 
@@ -16,8 +16,8 @@ const maxTractsCount = 1000
 
 var TooManyTractsError = errors.New("too many tracts")
 
-func CalcTargetsReachInfo(ctx context.Context, qtx *db_api.Queries, tracts itergroup.TractsIterGroup, balanceRecord db_api.BalanceRecord, targets []db_api.Target) ([]*TargetReachInfo, error) {
-	ig, err := itergroup.New(ctx, qtx, balanceRecord.Date)
+func CalcTargetsReachInfo(ctx context.Context, queries *db_api.Queries, balanceRecord db_api.BalanceRecord, targets []db_api.Target) ([]*TargetReachInfo, error) {
+	ig, err := itergroup.New(ctx, queries, balanceRecord.Date)
 	if err != nil {
 		return nil, err
 	}
@@ -31,6 +31,7 @@ func CalcTargetsReachInfo(ctx context.Context, qtx *db_api.Queries, tracts iterg
 		for {
 			// TODO: убрать отладочный вывод
 			fmt.Printf("%3d %s %10.1f\n", tractsCount, balanceRecord.Date, balanceRecord.Amount)
+
 			// если бюджета уже достаточно
 			if balanceRecord.Amount >= targetReachInfo.Amount {
 				balanceRecord.Amount -= targetReachInfo.Amount
@@ -40,7 +41,7 @@ func CalcTargetsReachInfo(ctx context.Context, qtx *db_api.Queries, tracts iterg
 				targetReachInfo.Reached = true
 
 				// TODO: убрать отладочный вывод
-				fmt.Println(targetReachInfo, balanceRecord.Amount)
+				fmt.Println("break coz reached", targetReachInfo, balanceRecord.Amount)
 				break
 			}
 
@@ -56,7 +57,8 @@ func CalcTargetsReachInfo(ctx context.Context, qtx *db_api.Queries, tracts iterg
 				// targetReachInfo.reached = false
 
 				// TODO: убрать отладочный вывод
-				fmt.Println(targetReachInfo, balanceRecord.Amount)
+				fmt.Println("end coz no next", targetReachInfo, balanceRecord.Amount)
+
 				return targetReachInfoStructs, nil
 			}
 			tractsCount++
@@ -77,7 +79,7 @@ type TargetReachInfo struct {
 }
 
 func (v *TargetReachInfo) String() string {
-	return fmt.Sprintf("{desc: %s, order: %d, reached: %.1f/%.1f, reachDate: %s}", v.Desc, v.Order, v.ReachedAmount, v.Amount, v.ReachDate)
+	return fmt.Sprintf("{desc: %s, order: %d, reached: %.1f/%.1f, reachDate: %s}", v.Desc, v.Order, v.ReachedAmount, v.Amount, v.ReachDate.Format(time.DateOnly))
 }
 
 // выбирает для каждой очереди цель с максимальной суммой и конвертит в нужный тип

@@ -34,7 +34,7 @@ type Target struct {
 	Amount  float64
 	Desc    string
 	Order   int64
-	TractID int64
+	TractID sql.NullInt64
 }
 
 type Tract struct {
