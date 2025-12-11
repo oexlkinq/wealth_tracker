@@ -34,13 +34,13 @@ var ExampleCmd = &cobra.Command{
 				{
 					Rrule:    randRRule(),
 					Desc:     "аренда квартиры",
-					Amount:   15_000,
+					Amount:   -15_000,
 					Reqs_ack: false,
 				},
 				{
 					Rrule:    randRRule(),
 					Desc:     "за инет",
-					Amount:   890,
+					Amount:   -890,
 					Reqs_ack: true,
 				},
 			},

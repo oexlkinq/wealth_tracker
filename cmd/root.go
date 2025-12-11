@@ -40,19 +40,13 @@ var rootCmd = &cobra.Command{
 			return fmt.Errorf("delete generated tracts: %w", err)
 		}
 
-		// сбор данных для расчёта
-		balance, err := q.GetLatestBalanceRecord(ctx)
+		calcInstance, err := calc.New(ctx, app.Queries)
 		if err != nil {
-			return fmt.Errorf("get latest balance record: %w", err)
-		}
-
-		targets, err := q.ListTargets(ctx)
-		if err != nil {
-			return fmt.Errorf("list targets: %w", err)
+			return fmt.Errorf("create calc instance: %w", err)
 		}
 
 		// расчёт
-		tris, err := calc.CalcTargetsReachInfo(ctx, q, balance, targets)
+		tris, err := calcInstance.CalcTargetsReachInfo()
 		if err != nil {
 			return fmt.Errorf("calc targets reach info: %w", err)
 		}

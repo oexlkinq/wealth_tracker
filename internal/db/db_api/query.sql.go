@@ -7,6 +7,7 @@ package db_api
 
 import (
 	"context"
+	"database/sql"
 	"time"
 )
 
@@ -75,8 +76,59 @@ func (q *Queries) GetLatestBalanceRecord(ctx context.Context) (BalanceRecord, er
 	return i, err
 }
 
+const listTargetsForCalc = `-- name: ListTargetsForCalc :many
+with RankedTargets as (
+    select
+        t.id, t.amount, t."desc", t."order", t.tract_id,
+        ROW_NUMBER() over (PARTITION BY "order" ORDER BY t.amount DESC) as rn
+    from targets t
+)
+select id, amount, "desc", "order", tract_id, rn
+from RankedTargets
+where rn = 1
+`
+
+type ListTargetsForCalcRow struct {
+	ID      int64
+	Amount  float64
+	Desc    string
+	Order   int64
+	TractID sql.NullInt64
+	Rn      interface{}
+}
+
+func (q *Queries) ListTargetsForCalc(ctx context.Context) ([]ListTargetsForCalcRow, error) {
+	rows, err := q.db.QueryContext(ctx, listTargetsForCalc)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTargetsForCalcRow
+	for rows.Next() {
+		var i ListTargetsForCalcRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Amount,
+			&i.Desc,
+			&i.Order,
+			&i.TractID,
+			&i.Rn,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTractsSince = `-- name: ListTractsSince :many
-select t.amount, t.date
+select t.id, t.type, t.date, t.amount, t.acked
 from tracts t
 left join rtracts_to_tracts rtt on rtt.tract_id = t.id
 where t.date >= ?1 and rtt.rtract_id = ?2
@@ -88,21 +140,22 @@ type ListTractsSinceParams struct {
 	RtractID int64
 }
 
-type ListTractsSinceRow struct {
-	Amount float64
-	Date   time.Time
-}
-
-func (q *Queries) ListTractsSince(ctx context.Context, arg ListTractsSinceParams) ([]ListTractsSinceRow, error) {
+func (q *Queries) ListTractsSince(ctx context.Context, arg ListTractsSinceParams) ([]Tract, error) {
 	rows, err := q.db.QueryContext(ctx, listTractsSince, arg.Since, arg.RtractID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListTractsSinceRow
+	var items []Tract
 	for rows.Next() {
-		var i ListTractsSinceRow
-		if err := rows.Scan(&i.Amount, &i.Date); err != nil {
+		var i Tract
+		if err := rows.Scan(
+			&i.ID,
+			&i.Type,
+			&i.Date,
+			&i.Amount,
+			&i.Acked,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

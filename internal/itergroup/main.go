@@ -8,16 +8,17 @@ import (
 
 	"github.com/oexlkinq/wealth_tracker/internal/db/db_api"
 	"github.com/oexlkinq/wealth_tracker/internal/itergroup/tractsiter"
+	"github.com/oexlkinq/wealth_tracker/internal/itergroup/tractsiter/models"
 )
 
 type tractsIterState struct {
-	temp *tractsiter.Tract
+	temp *models.CalcTract
 	ok   bool
-	next func() (*tractsiter.Tract, bool)
+	next func() (*models.CalcTract, bool)
 	stop func()
 }
 
-type TractsIterGroup []tractsIterState
+type TractsIterGroup []*tractsIterState
 
 func New(ctx context.Context, qtx *db_api.Queries, since time.Time) (TractsIterGroup, error) {
 	rtracts, err := qtx.ListRTracts(ctx)
@@ -35,7 +36,7 @@ func New(ctx context.Context, qtx *db_api.Queries, since time.Time) (TractsIterG
 		next, stop := iter.Pull(ti.All())
 		temp, ok := next()
 
-		tig = append(tig, tractsIterState{
+		tig = append(tig, &tractsIterState{
 			temp: temp,
 			next: next,
 			stop: stop,
@@ -46,13 +47,13 @@ func New(ctx context.Context, qtx *db_api.Queries, since time.Time) (TractsIterG
 	return tig, nil
 }
 
-func (v TractsIterGroup) All() iter.Seq[*tractsiter.Tract] {
-	return func(yield func(*tractsiter.Tract) bool) {
+func (v TractsIterGroup) All() iter.Seq[*models.CalcTract] {
+	return func(yield func(*models.CalcTract) bool) {
 		defer v.stop()
 
 		for {
 			// отсортировать, чтобы первой оказался итератор с наименьшей датой
-			slices.SortFunc(v, func(a, b tractsIterState) int {
+			slices.SortFunc(v, func(a, b *tractsIterState) int {
 				if !a.ok {
 					return 1
 				}

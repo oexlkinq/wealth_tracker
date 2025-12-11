@@ -8,6 +8,7 @@ import (
 	"github.com/oexlkinq/wealth_tracker/internal/db/db_api"
 	"github.com/oexlkinq/wealth_tracker/internal/itergroup/tractsiter/dbiter"
 	"github.com/oexlkinq/wealth_tracker/internal/itergroup/tractsiter/gen"
+	"github.com/oexlkinq/wealth_tracker/internal/itergroup/tractsiter/models"
 )
 
 type TractsIter struct {
@@ -32,27 +33,29 @@ func New(ctx context.Context, qtx *db_api.Queries, since time.Time, rtract *db_a
 	}, nil
 }
 
-type Tract struct {
-	db_api.ListTractsSinceRow
-	Generated bool
-}
+func (v *TractsIter) All() iter.Seq[*models.CalcTract] {
+	return func(yield func(*models.CalcTract) bool) {
+		var lastDate time.Time
+		next, stop := iter.Pull(v.DBIter.All())
+		for {
+			tract, ok := next()
+			if !ok {
+				break
+			}
+			lastDate = tract.Date
 
-func (v *TractsIter) All() iter.Seq[*Tract] {
-	return func(yield func(*Tract) bool) {
-		for t := range v.DBIter.All() {
-			if !yield(&Tract{
-				ListTractsSinceRow: *t,
-				Generated:          false,
-			}) {
+			if !yield(tract) {
+				stop()
 				return
 			}
 		}
 
+		if !lastDate.IsZero() {
+			v.GTractGen.ResetTo(lastDate, false)
+		}
+
 		for tract := range v.GTractGen.All() {
-			if !yield(&Tract{
-				ListTractsSinceRow: *tract,
-				Generated:          true,
-			}) {
+			if !yield(tract) {
 				return
 			}
 		}

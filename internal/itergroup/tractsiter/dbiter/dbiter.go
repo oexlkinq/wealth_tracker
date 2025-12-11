@@ -6,10 +6,11 @@ import (
 	"time"
 
 	"github.com/oexlkinq/wealth_tracker/internal/db/db_api"
+	"github.com/oexlkinq/wealth_tracker/internal/itergroup/tractsiter/models"
 )
 
 type DBIter struct {
-	tracts []db_api.ListTractsSinceRow
+	calcTracts []*models.CalcTract
 }
 
 func New(ctx context.Context, qtx *db_api.Queries, since time.Time, rtract *db_api.Rtract) (*DBIter, error) {
@@ -21,13 +22,22 @@ func New(ctx context.Context, qtx *db_api.Queries, since time.Time, rtract *db_a
 		return nil, err
 	}
 
-	return &DBIter{tracts}, nil
+	calcTracts := make([]*models.CalcTract, len(tracts))
+	for i := range tracts {
+		calcTracts[i] = &models.CalcTract{
+			Tract:     &tracts[i],
+			RTractID:  0,
+			Generated: false,
+		}
+	}
+
+	return &DBIter{calcTracts: calcTracts}, nil
 }
 
-func (v *DBIter) All() iter.Seq[*db_api.ListTractsSinceRow] {
-	return func(yield func(*db_api.ListTractsSinceRow) bool) {
-		for i := range v.tracts {
-			if !yield(&v.tracts[i]) {
+func (v *DBIter) All() iter.Seq[*models.CalcTract] {
+	return func(yield func(*models.CalcTract) bool) {
+		for i := range v.calcTracts {
+			if !yield(v.calcTracts[i]) {
 				return
 			}
 		}
