@@ -24,12 +24,6 @@ insert into rtracts_to_tracts (
 );
 
 -- name: ListTargetsForCalc :many
-with RankedTargets as (
-    select
-        t.*,
-        ROW_NUMBER() over (PARTITION BY "order" ORDER BY t.amount DESC) as rn
-    from targets t
-)
-select *
-from RankedTargets
-where rn = 1;
+select t.*
+from targets t
+order by t."order" asc;

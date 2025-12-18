@@ -181,7 +181,7 @@ func (v *Calc) saveTract(tractType string, amount float64) (int64, error) {
 }
 
 type TargetReachInfo struct {
-	Target        *db_api.ListTargetsForCalcRow
+	Target        *db_api.Target
 	ReachDate     time.Time
 	ReachedAmount float64
 	Reached       bool

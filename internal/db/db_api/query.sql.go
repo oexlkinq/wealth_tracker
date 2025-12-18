@@ -7,7 +7,6 @@ package db_api
 
 import (
 	"context"
-	"database/sql"
 	"time"
 )
 
@@ -27,34 +26,6 @@ type CreateRTractToTractParams struct {
 func (q *Queries) CreateRTractToTract(ctx context.Context, arg CreateRTractToTractParams) error {
 	_, err := q.db.ExecContext(ctx, createRTractToTract, arg.RtractID, arg.TractID)
 	return err
-}
-
-const createTract = `-- name: CreateTract :one
-insert into tracts (
-    type, date, amount, acked
-) values (
-    ?, ?, ?, ?
-)
-returning id
-`
-
-type CreateTractParams struct {
-	Type   string
-	Date   time.Time
-	Amount float64
-	Acked  bool
-}
-
-func (q *Queries) CreateTract(ctx context.Context, arg CreateTractParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, createTract,
-		arg.Type,
-		arg.Date,
-		arg.Amount,
-		arg.Acked,
-	)
-	var id int64
-	err := row.Scan(&id)
-	return id, err
 }
 
 const getLatestBalanceRecord = `-- name: GetLatestBalanceRecord :one
@@ -77,42 +48,26 @@ func (q *Queries) GetLatestBalanceRecord(ctx context.Context) (BalanceRecord, er
 }
 
 const listTargetsForCalc = `-- name: ListTargetsForCalc :many
-with RankedTargets as (
-    select
-        t.id, t.amount, t."desc", t."order", t.tract_id,
-        ROW_NUMBER() over (PARTITION BY "order" ORDER BY t.amount DESC) as rn
-    from targets t
-)
-select id, amount, "desc", "order", tract_id, rn
-from RankedTargets
-where rn = 1
+select t.id, t.amount, t."desc", t."order", t.tract_id
+from targets t
+order by t."order" asc
 `
 
-type ListTargetsForCalcRow struct {
-	ID      int64
-	Amount  float64
-	Desc    string
-	Order   int64
-	TractID sql.NullInt64
-	Rn      interface{}
-}
-
-func (q *Queries) ListTargetsForCalc(ctx context.Context) ([]ListTargetsForCalcRow, error) {
+func (q *Queries) ListTargetsForCalc(ctx context.Context) ([]Target, error) {
 	rows, err := q.db.QueryContext(ctx, listTargetsForCalc)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListTargetsForCalcRow
+	var items []Target
 	for rows.Next() {
-		var i ListTargetsForCalcRow
+		var i Target
 		if err := rows.Scan(
 			&i.ID,
 			&i.Amount,
 			&i.Desc,
 			&i.Order,
 			&i.TractID,
-			&i.Rn,
 		); err != nil {
 			return nil, err
 		}
