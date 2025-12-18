@@ -28,34 +28,6 @@ func (q *Queries) CreateRTractToTract(ctx context.Context, arg CreateRTractToTra
 	return err
 }
 
-const createTract = `-- name: CreateTract :one
-insert into tracts (
-    type, date, amount, acked
-) values (
-    ?, ?, ?, ?
-)
-returning id
-`
-
-type CreateTractParams struct {
-	Type   string
-	Date   time.Time
-	Amount float64
-	Acked  bool
-}
-
-func (q *Queries) CreateTract(ctx context.Context, arg CreateTractParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, createTract,
-		arg.Type,
-		arg.Date,
-		arg.Amount,
-		arg.Acked,
-	)
-	var id int64
-	err := row.Scan(&id)
-	return id, err
-}
-
 const getLatestBalanceRecord = `-- name: GetLatestBalanceRecord :one
 select br.id, br.amount, br.date, br.origin_tract
 from balance_records br
@@ -75,8 +47,43 @@ func (q *Queries) GetLatestBalanceRecord(ctx context.Context) (BalanceRecord, er
 	return i, err
 }
 
+const listTargetsForCalc = `-- name: ListTargetsForCalc :many
+select t.id, t.amount, t."desc", t."order", t.tract_id
+from targets t
+order by t."order" asc
+`
+
+func (q *Queries) ListTargetsForCalc(ctx context.Context) ([]Target, error) {
+	rows, err := q.db.QueryContext(ctx, listTargetsForCalc)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Target
+	for rows.Next() {
+		var i Target
+		if err := rows.Scan(
+			&i.ID,
+			&i.Amount,
+			&i.Desc,
+			&i.Order,
+			&i.TractID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTractsSince = `-- name: ListTractsSince :many
-select t.amount, t.date
+select t.id, t.type, t.date, t.amount, t.acked
 from tracts t
 left join rtracts_to_tracts rtt on rtt.tract_id = t.id
 where t.date >= ?1 and rtt.rtract_id = ?2
@@ -88,21 +95,22 @@ type ListTractsSinceParams struct {
 	RtractID int64
 }
 
-type ListTractsSinceRow struct {
-	Amount float64
-	Date   time.Time
-}
-
-func (q *Queries) ListTractsSince(ctx context.Context, arg ListTractsSinceParams) ([]ListTractsSinceRow, error) {
+func (q *Queries) ListTractsSince(ctx context.Context, arg ListTractsSinceParams) ([]Tract, error) {
 	rows, err := q.db.QueryContext(ctx, listTractsSince, arg.Since, arg.RtractID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListTractsSinceRow
+	var items []Tract
 	for rows.Next() {
-		var i ListTractsSinceRow
-		if err := rows.Scan(&i.Amount, &i.Date); err != nil {
+		var i Tract
+		if err := rows.Scan(
+			&i.ID,
+			&i.Type,
+			&i.Date,
+			&i.Amount,
+			&i.Acked,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

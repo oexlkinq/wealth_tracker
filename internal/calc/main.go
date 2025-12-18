@@ -2,102 +2,191 @@ package calc
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"iter"
-	"maps"
 	"time"
 
 	"github.com/oexlkinq/wealth_tracker/internal/db/db_api"
 	"github.com/oexlkinq/wealth_tracker/internal/itergroup"
+	"github.com/oexlkinq/wealth_tracker/internal/itergroup/tractsiter/models"
 )
 
 const maxTractsCount = 1000
 
-var TooManyTractsError = errors.New("too many tracts")
+var ErrorTooManyTracts = errors.New("too many tracts")
 
-func CalcTargetsReachInfo(ctx context.Context, queries *db_api.Queries, balanceRecord db_api.BalanceRecord, targets []db_api.Target) ([]*TargetReachInfo, error) {
-	ig, err := itergroup.New(ctx, queries, balanceRecord.Date)
+type Calc struct {
+	ctx     context.Context
+	qtx     *db_api.Queries
+	tris    []*TargetReachInfo
+	ig      itergroup.TractsIterGroup
+	balance db_api.BalanceRecord
+}
+
+func New(ctx context.Context, qtx *db_api.Queries) (*Calc, error) {
+	// сбор данных для расчёта
+	balanceRecord, err := qtx.GetLatestBalanceRecord(ctx)
 	if err != nil {
 		return nil, err
 	}
-	next, stop := iter.Pull(ig.All())
+
+	ig, err := itergroup.New(ctx, qtx, balanceRecord.Date)
+	if err != nil {
+		return nil, err
+	}
+
+	targets, err := qtx.ListTargetsForCalc(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	tris := make([]*TargetReachInfo, len(targets))
+	for i := range targets {
+		tris[i] = &TargetReachInfo{Target: &targets[i]}
+	}
+
+	return &Calc{
+		ctx:     ctx,
+		qtx:     qtx,
+		tris:    tris,
+		ig:      ig,
+		balance: balanceRecord,
+	}, nil
+}
+
+func (v *Calc) CalcTargetsReachInfo() ([]*TargetReachInfo, error) {
+	next, stop := iter.Pull(v.ig.All())
 	defer stop()
 
-	targetReachInfoStructs := prepareTargets(targets)
-
 	tractsCount := 0
-	for _, targetReachInfo := range targetReachInfoStructs {
+	for _, targetReachInfo := range v.tris {
 		for {
-			// TODO: убрать отладочный вывод
-			fmt.Printf("%3d %s %10.1f\n", tractsCount, balanceRecord.Date, balanceRecord.Amount)
-
 			// если бюджета уже достаточно
-			if balanceRecord.Amount >= targetReachInfo.Amount {
-				balanceRecord.Amount -= targetReachInfo.Amount
+			if v.balance.Amount >= targetReachInfo.Target.Amount {
+				v.balance.Amount -= targetReachInfo.Target.Amount
 
-				targetReachInfo.ReachedAmount = targetReachInfo.Amount
-				targetReachInfo.ReachDate = balanceRecord.Date
+				targetReachInfo.ReachedAmount = targetReachInfo.Target.Amount
+				targetReachInfo.ReachDate = v.balance.Date
 				targetReachInfo.Reached = true
 
+				err := v.saveTargetsTract(targetReachInfo.Target.Amount, targetReachInfo.Target.ID)
+				if err != nil {
+					return nil, fmt.Errorf("save targets tract: %w", err)
+				}
+
 				// TODO: убрать отладочный вывод
-				fmt.Println("break coz reached", targetReachInfo, balanceRecord.Amount)
+				fmt.Println("break coz reached", targetReachInfo, v.balance.Amount)
 				break
 			}
 
 			if tractsCount > maxTractsCount {
-				return nil, TooManyTractsError
+				return nil, ErrorTooManyTracts
 			}
 
-			tract, ok := next()
+			calcTract, ok := next()
 			// если кончились транзакции
 			if !ok {
-				targetReachInfo.ReachedAmount = balanceRecord.Amount
-				targetReachInfo.ReachDate = balanceRecord.Date
+				targetReachInfo.ReachedAmount = v.balance.Amount
+				targetReachInfo.ReachDate = v.balance.Date
 				// targetReachInfo.reached = false
 
-				// TODO: убрать отладочный вывод
-				fmt.Println("end coz no next", targetReachInfo, balanceRecord.Amount)
+				err := v.saveTargetsTract(targetReachInfo.Target.Amount, targetReachInfo.Target.ID)
+				if err != nil {
+					return nil, fmt.Errorf("save targets tract: %w", err)
+				}
 
-				return targetReachInfoStructs, nil
+				// TODO: убрать отладочный вывод
+				fmt.Println("end coz no next", targetReachInfo, v.balance.Amount)
+				return v.tris, nil
 			}
 			tractsCount++
 
-			balanceRecord.Amount += tract.Amount
-			balanceRecord.Date = tract.Date
+			v.balance.Amount += calcTract.Amount
+			v.balance.Date = calcTract.Date
+
+			err := v.saveCalcTract(calcTract)
+			if err != nil {
+				return nil, fmt.Errorf("save calcTract: %w", err)
+			}
 		}
 	}
 
-	return targetReachInfoStructs, nil
+	return v.tris, nil
+}
+
+func (v *Calc) saveTargetsTract(amount float64, targetID int64) error {
+	id, err := v.saveTract("target", amount)
+	if err != nil {
+		return err
+	}
+
+	err = v.qtx.UpdateTractIDOfTarget(v.ctx, db_api.UpdateTractIDOfTargetParams{
+		TargetID: targetID,
+		TractID:  sql.NullInt64{Int64: id, Valid: true},
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (v *Calc) saveCalcTract(calcTract *models.CalcTract) error {
+	if !calcTract.Generated {
+		// TODO: т.к. сейчас реализован только минимальный функционал, в бд не должно существовать транзакций, т.к. они все удаляются перед запуском
+		panic(fmt.Errorf("not implemented"))
+	}
+
+	// создание транзакции и отметки баланса
+	id, err := v.saveTract("rtract", calcTract.Amount)
+	if err != nil {
+		return fmt.Errorf("save tract: %w", err)
+	}
+
+	// создание связи транзакции с ртрактом
+	err = v.qtx.CreateRTractToTract(v.ctx, db_api.CreateRTractToTractParams{
+		RtractID: calcTract.RTractID,
+		TractID:  id,
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (v *Calc) saveTract(tractType string, amount float64) (int64, error) {
+	id, err := v.qtx.CreateTract(v.ctx, db_api.CreateTractParams{
+		Type:   tractType,
+		Date:   v.balance.Date,
+		Amount: amount,
+		Acked:  false,
+	})
+	if err != nil {
+		return 0, err
+	}
+
+	err = v.qtx.CreateBalanceRecord(v.ctx, db_api.CreateBalanceRecordParams{
+		Amount:      v.balance.Amount,
+		Date:        v.balance.Date,
+		OriginTract: sql.NullInt64{Int64: id, Valid: true},
+	})
+	if err != nil {
+		return 0, err
+	}
+
+	return id, nil
 }
 
 type TargetReachInfo struct {
-	db_api.Target
+	Target        *db_api.Target
 	ReachDate     time.Time
 	ReachedAmount float64
 	Reached       bool
 }
 
 func (v *TargetReachInfo) String() string {
-	return fmt.Sprintf("{desc: %s, order: %d, reached: %.1f/%.1f, reachDate: %s}", v.Desc, v.Order, v.ReachedAmount, v.Amount, v.ReachDate.Format(time.DateOnly))
-}
-
-// выбирает для каждой очереди цель с максимальной суммой и конвертит в нужный тип
-func prepareTargets(targets []db_api.Target) []*TargetReachInfo {
-	order_to_target := make(map[int64]db_api.Target, len(targets))
-	for _, target := range targets {
-		v, ok := order_to_target[target.Order]
-		if !ok || target.Amount > v.Amount {
-			order_to_target[target.Order] = target
-		}
-	}
-
-	targetReachInfoStructs := make([]*TargetReachInfo, len(order_to_target))
-	i := 0
-	for target := range maps.Values(order_to_target) {
-		targetReachInfoStructs[i] = &TargetReachInfo{Target: target}
-		i++
-	}
-
-	return targetReachInfoStructs
+	return fmt.Sprintf("{desc: %s, order: %d, reached: %.1f/%.1f, reachDate: %s}", v.Target.Desc, v.Target.Order, v.ReachedAmount, v.Target.Amount, v.ReachDate.Format(time.DateOnly))
 }

@@ -9,6 +9,11 @@ insert into targets (
 select *
 from targets;
 
+-- name: UpdateTractIDOfTarget :exec
+update targets
+set tract_id = ?
+where id = @target_id;
+
 -- name: DeleteTarget :exec
 delete from targets
 where id = ?;

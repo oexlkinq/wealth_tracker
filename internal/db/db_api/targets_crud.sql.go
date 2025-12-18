@@ -7,6 +7,7 @@ package db_api
 
 import (
 	"context"
+	"database/sql"
 )
 
 const createTarget = `-- name: CreateTarget :exec
@@ -70,4 +71,20 @@ func (q *Queries) ListTargets(ctx context.Context) ([]Target, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateTractIDOfTarget = `-- name: UpdateTractIDOfTarget :exec
+update targets
+set tract_id = ?
+where id = ?
+`
+
+type UpdateTractIDOfTargetParams struct {
+	TractID  sql.NullInt64
+	TargetID int64
+}
+
+func (q *Queries) UpdateTractIDOfTarget(ctx context.Context, arg UpdateTractIDOfTargetParams) error {
+	_, err := q.db.ExecContext(ctx, updateTractIDOfTarget, arg.TractID, arg.TargetID)
+	return err
 }
