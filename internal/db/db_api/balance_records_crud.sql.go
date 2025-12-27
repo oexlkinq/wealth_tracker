@@ -7,26 +7,24 @@ package db_api
 
 import (
 	"context"
-	"database/sql"
 	"time"
 )
 
 const createBalanceRecord = `-- name: CreateBalanceRecord :exec
 insert into balance_records (
-    amount, date, origin_tract
+    amount, date
 ) values (
-    ?, ?, ?
+    ?, ?
 )
 `
 
 type CreateBalanceRecordParams struct {
-	Amount      float64
-	Date        time.Time
-	OriginTract sql.NullInt64
+	Amount float64
+	Date   time.Time
 }
 
 func (q *Queries) CreateBalanceRecord(ctx context.Context, arg CreateBalanceRecordParams) error {
-	_, err := q.db.ExecContext(ctx, createBalanceRecord, arg.Amount, arg.Date, arg.OriginTract)
+	_, err := q.db.ExecContext(ctx, createBalanceRecord, arg.Amount, arg.Date)
 	return err
 }
 

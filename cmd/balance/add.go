@@ -2,7 +2,6 @@ package balance
 
 import (
 	"context"
-	"database/sql"
 	"time"
 
 	"github.com/oexlkinq/wealth_tracker/internal/app"
@@ -26,9 +25,8 @@ var addBalanceCmd = &cobra.Command{
 	RunE: app.MakeCmdRunEFunc(func(cmd *cobra.Command, args []string, ctx context.Context, app *app.App) error {
 
 		app.Queries.CreateBalanceRecord(ctx, db_api.CreateBalanceRecordParams{
-			Amount:      amount,
-			Date:        date,
-			OriginTract: sql.NullInt64{},
+			Amount: amount,
+			Date:   date,
 		})
 
 		return nil

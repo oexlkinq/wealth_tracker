@@ -40,19 +40,14 @@ var rootCmd = &cobra.Command{
 			return fmt.Errorf("delete generated tracts: %w", err)
 		}
 
-		calcInstance, err := calc.New(ctx, app.Queries)
-		if err != nil {
-			return fmt.Errorf("create calc instance: %w", err)
-		}
-
 		// расчёт
-		tris, err := calcInstance.CalcTargetsReachInfo()
+		tris, err := calc.Calc(ctx, q)
 		if err != nil {
 			return fmt.Errorf("calc targets reach info: %w", err)
 		}
 
 		for _, tri := range tris {
-			fmt.Println(tri)
+			fmt.Printf("%+v\n", tri)
 		}
 
 		return nil

@@ -32,8 +32,7 @@ create table if not exists rtracts_to_tracts (
 create table if not exists balance_records (
     id integer primary key,
     amount real not null,
-    date date not null,
-    origin_tract integer references tracts(id) on delete cascade on update cascade
+    date date not null
 );
 
 -- +goose StatementEnd
