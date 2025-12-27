@@ -1,0 +1,20 @@
+services:
+  metabase:
+    image: metabase/metabase:latest
+    container_name: metabase
+    hostname: metabase
+    volumes:
+      - /dev/urandom:/dev/random:ro
+      - ./appdata:/appdata
+    ports:
+      - 3000:3000
+    networks:
+      - metanet
+    healthcheck:
+      test: curl --fail -I http://localhost:3000/api/health || exit 1
+      interval: 15s
+      timeout: 5s
+      retries: 5
+networks:
+  metanet:
+    driver: bridge

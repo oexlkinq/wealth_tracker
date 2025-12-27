@@ -19,7 +19,7 @@ type App struct {
 
 func New(ctx context.Context) (*App, error) {
 	// TODO: вынести это в .env или в конфиг и юзать viper
-	DBPath := "wealth_tracker.db"
+	DBPath := "appdata/wealth_tracker.db"
 
 	dbc, err := sql.Open("sqlite", DBPath)
 	if err != nil {
