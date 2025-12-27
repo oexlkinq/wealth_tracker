@@ -7,6 +7,7 @@ package db_api
 
 import (
 	"context"
+	"database/sql"
 	"time"
 )
 
@@ -45,6 +46,87 @@ func (q *Queries) GetLatestBalanceRecord(ctx context.Context) (BalanceRecord, er
 		&i.OriginTract,
 	)
 	return i, err
+}
+
+const getReachingTargetDate = `-- name: GetReachingTargetDate :one
+with
+	balance as (select amount, date from balance_records order by date desc limit 1),
+	csum as (
+		select id, amount, date, (select amount from balance) + sum(amount) OVER (ORDER BY date, id ROWS UNBOUNDED PRECEDING) as csum
+		from tracts
+		where date > (select date from balance)
+	),
+	csum_with_prev as (
+		select id, amount, date, t.csum, lag(csum, 1) over (order by date, id) as prev_csum
+		from csum t
+	)
+select "date"
+from csum_with_prev
+where csum >= ? and (prev_csum < ? or prev_csum is null)
+order by date desc, id desc
+limit 1;
+`
+
+func (q *Queries) GetReachingTargetDate(ctx context.Context, target float64) (time.Time, error) {
+	row := q.db.QueryRowContext(ctx, getReachingTargetDate, target, target)
+	var i time.Time
+	err := row.Scan(
+		&i,
+	)
+	return i, err
+}
+
+const listRtractsWithLastTracts = `-- name: ListRtractsWithLastTracts :many
+with ranked_rtt as (
+    select rank() over (partition by rt.id order by t.date desc, t.id desc) as tract_rank, rt.id, rt.rrule, rt."desc", rt.amount, rt.reqs_ack, t.date
+    from rtracts rt
+    left join rtracts_to_tracts rtt on rtt.rtract_id = rt.id
+    left join tracts t on rtt.tract_id = t.id
+)
+select tract_rank, id, rrule, "desc", amount, reqs_ack, date
+from ranked_rtt
+where tract_rank = 1
+`
+
+type ListRtractsWithLastTractsRow struct {
+	TractRank interface{}
+	ID        int64
+	Rrule     string
+	Desc      string
+	Amount    float64
+	ReqsAck   bool
+	Date      sql.NullTime
+}
+
+func (q *Queries) ListRtractsWithLastTracts(ctx context.Context) ([]ListRtractsWithLastTractsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listRtractsWithLastTracts)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListRtractsWithLastTractsRow
+	for rows.Next() {
+		var i ListRtractsWithLastTractsRow
+		if err := rows.Scan(
+			&i.TractRank,
+			&i.ID,
+			&i.Rrule,
+			&i.Desc,
+			&i.Amount,
+			&i.ReqsAck,
+			&i.Date,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listTargetsForCalc = `-- name: ListTargetsForCalc :many

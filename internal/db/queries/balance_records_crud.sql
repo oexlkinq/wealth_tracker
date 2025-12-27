@@ -1,8 +1,8 @@
 -- name: CreateBalanceRecord :exec
 insert into balance_records (
-    amount, date, origin_tract
+    amount, date
 ) values (
-    ?, ?, ?
+    ?, ?
 );
 
 -- name: ListBalanceRecords :many

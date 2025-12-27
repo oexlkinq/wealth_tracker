@@ -2,7 +2,6 @@ package models
 
 import (
 	"context"
-	"database/sql"
 	"time"
 
 	"github.com/oexlkinq/wealth_tracker/internal/db/db_api"
@@ -20,9 +19,8 @@ func (v *RawBalanceRecord) Insert(ctx context.Context, qtx *db_api.Queries) erro
 	}
 
 	err = qtx.CreateBalanceRecord(ctx, db_api.CreateBalanceRecordParams{
-		Amount:      v.Amount,
-		Date:        date,
-		OriginTract: sql.NullInt64{},
+		Amount: v.Amount,
+		Date:   date,
 	})
 	if err != nil {
 		return err
