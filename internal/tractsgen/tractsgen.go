@@ -2,14 +2,28 @@ package tractsgen
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/oexlkinq/wealth_tracker/internal/db/db_api"
 	"github.com/teambition/rrule-go"
 )
 
-func GenUpTo(ctx context.Context, qtx *db_api.Queries, until time.Time) error {
-	rows, err := qtx.ListRtractsWithLastTracts(ctx)
+type Repo interface {
+	ListRtractsWithLastTracts(ctx context.Context) ([]db_api.ListRtractsWithLastTractsRow, error)
+	CreateTract(ctx context.Context, arg db_api.CreateTractParams) (int64, error)
+}
+
+type tractsgen struct {
+	repo Repo
+}
+
+func New(repos Repo) *tractsgen {
+	return &tractsgen{repos}
+}
+
+func (v *tractsgen) GenUpTo(ctx context.Context, until time.Time) error {
+	rows, err := v.repo.ListRtractsWithLastTracts(ctx)
 	if err != nil {
 		return err
 	}
@@ -27,19 +41,11 @@ func GenUpTo(ctx context.Context, qtx *db_api.Queries, until time.Time) error {
 		rr.Until(until)
 
 		for _, occ := range rr.All() {
-			tractId, err := qtx.CreateTract(ctx, db_api.CreateTractParams{
-				Type:   "rtract",
-				Date:   occ,
-				Amount: row.Amount,
-				Acked:  false,
-			})
-			if err != nil {
-				return err
-			}
-
-			err = qtx.CreateRTractToTract(ctx, db_api.CreateRTractToTractParams{
-				RtractID: row.ID,
-				TractID:  tractId,
+			_, err := v.repo.CreateTract(ctx, db_api.CreateTractParams{
+				Date:     occ,
+				Amount:   row.Amount,
+				Acked:    false,
+				RtractID: sql.NullInt64{Int64: row.ID, Valid: true},
 			})
 			if err != nil {
 				return err

@@ -11,26 +11,8 @@ import (
 	"time"
 )
 
-const createRTractToTract = `-- name: CreateRTractToTract :exec
-insert into rtracts_to_tracts (
-    rtract_id, tract_id
-) values (
-    ?, ?
-)
-`
-
-type CreateRTractToTractParams struct {
-	RtractID int64
-	TractID  int64
-}
-
-func (q *Queries) CreateRTractToTract(ctx context.Context, arg CreateRTractToTractParams) error {
-	_, err := q.db.ExecContext(ctx, createRTractToTract, arg.RtractID, arg.TractID)
-	return err
-}
-
 const getLatestBalanceRecord = `-- name: GetLatestBalanceRecord :one
-select br.id, br.amount, br.date, br.origin_tract
+select br.id, br.amount, br.date
 from balance_records br
 order by br.date desc, br.amount asc
 limit 1
@@ -39,40 +21,7 @@ limit 1
 func (q *Queries) GetLatestBalanceRecord(ctx context.Context) (BalanceRecord, error) {
 	row := q.db.QueryRowContext(ctx, getLatestBalanceRecord)
 	var i BalanceRecord
-	err := row.Scan(
-		&i.ID,
-		&i.Amount,
-		&i.Date,
-		&i.OriginTract,
-	)
-	return i, err
-}
-
-const getReachingTargetDate = `-- name: GetReachingTargetDate :one
-with
-	balance as (select amount, date from balance_records order by date desc limit 1),
-	csum as (
-		select id, amount, date, (select amount from balance) + sum(amount) OVER (ORDER BY date, id ROWS UNBOUNDED PRECEDING) as csum
-		from tracts
-		where date > (select date from balance)
-	),
-	csum_with_prev as (
-		select id, amount, date, t.csum, lag(csum, 1) over (order by date, id) as prev_csum
-		from csum t
-	)
-select "date"
-from csum_with_prev
-where csum >= ? and (prev_csum < ? or prev_csum is null)
-order by date desc, id desc
-limit 1;
-`
-
-func (q *Queries) GetReachingTargetDate(ctx context.Context, target float64) (time.Time, error) {
-	row := q.db.QueryRowContext(ctx, getReachingTargetDate, target, target)
-	var i time.Time
-	err := row.Scan(
-		&i,
-	)
+	err := row.Scan(&i.ID, &i.Amount, &i.Date)
 	return i, err
 }
 
@@ -80,8 +29,7 @@ const listRtractsWithLastTracts = `-- name: ListRtractsWithLastTracts :many
 with ranked_rtt as (
     select rank() over (partition by rt.id order by t.date desc, t.id desc) as tract_rank, rt.id, rt.rrule, rt."desc", rt.amount, rt.reqs_ack, t.date
     from rtracts rt
-    left join rtracts_to_tracts rtt on rtt.rtract_id = rt.id
-    left join tracts t on rtt.tract_id = t.id
+    left join tracts t on rt.id = t.rtract_id
 )
 select tract_rank, id, rrule, "desc", amount, reqs_ack, date
 from ranked_rtt
@@ -130,7 +78,7 @@ func (q *Queries) ListRtractsWithLastTracts(ctx context.Context) ([]ListRtractsW
 }
 
 const listTargetsForCalc = `-- name: ListTargetsForCalc :many
-select t.id, t.amount, t."desc", t."order", t.tract_id
+select t.id, t.amount, t."desc", t."order"
 from targets t
 order by t."order" asc
 `
@@ -149,7 +97,6 @@ func (q *Queries) ListTargetsForCalc(ctx context.Context) ([]Target, error) {
 			&i.Amount,
 			&i.Desc,
 			&i.Order,
-			&i.TractID,
 		); err != nil {
 			return nil, err
 		}
@@ -165,16 +112,15 @@ func (q *Queries) ListTargetsForCalc(ctx context.Context) ([]Target, error) {
 }
 
 const listTractsSince = `-- name: ListTractsSince :many
-select t.id, t.type, t.date, t.amount, t.acked
+select t.id, t.date, t.amount, t.acked, t.target_id, t.rtract_id
 from tracts t
-left join rtracts_to_tracts rtt on rtt.tract_id = t.id
-where t.date >= ?1 and rtt.rtract_id = ?2
+where t.date >= ?1 and t.rtract_id = ?2
 order by date asc
 `
 
 type ListTractsSinceParams struct {
 	Since    time.Time
-	RtractID int64
+	RtractID sql.NullInt64
 }
 
 func (q *Queries) ListTractsSince(ctx context.Context, arg ListTractsSinceParams) ([]Tract, error) {
@@ -188,45 +134,11 @@ func (q *Queries) ListTractsSince(ctx context.Context, arg ListTractsSinceParams
 		var i Tract
 		if err := rows.Scan(
 			&i.ID,
-			&i.Type,
 			&i.Date,
 			&i.Amount,
 			&i.Acked,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listUnreachedTargets = `-- name: ListUnreachedTargets :many
-select t.id, t.amount, t."desc", t."order", t.tract_id
-from targets t
-where tract_id is null
-`
-
-func (q *Queries) ListUnreachedTargets(ctx context.Context) ([]Target, error) {
-	rows, err := q.db.QueryContext(ctx, listUnreachedTargets)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Target
-	for rows.Next() {
-		var i Target
-		if err := rows.Scan(
-			&i.ID,
-			&i.Amount,
-			&i.Desc,
-			&i.Order,
-			&i.TractID,
+			&i.TargetID,
+			&i.RtractID,
 		); err != nil {
 			return nil, err
 		}

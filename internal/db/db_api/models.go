@@ -10,10 +10,9 @@ import (
 )
 
 type BalanceRecord struct {
-	ID          int64
-	Amount      float64
-	Date        time.Time
-	OriginTract sql.NullInt64
+	ID     int64
+	Amount float64
+	Date   time.Time
 }
 
 type Rtract struct {
@@ -24,23 +23,18 @@ type Rtract struct {
 	ReqsAck bool
 }
 
-type RtractsToTract struct {
-	RtractID int64
-	TractID  int64
-}
-
 type Target struct {
-	ID      int64
-	Amount  float64
-	Desc    string
-	Order   int64
-	TractID sql.NullInt64
+	ID     int64
+	Amount float64
+	Desc   string
+	Order  int64
 }
 
 type Tract struct {
-	ID     int64
-	Type   string
-	Date   time.Time
-	Amount float64
-	Acked  bool
+	ID       int64
+	Date     time.Time
+	Amount   float64
+	Acked    bool
+	TargetID sql.NullInt64
+	RtractID sql.NullInt64
 }

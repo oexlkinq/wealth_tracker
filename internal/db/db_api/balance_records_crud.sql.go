@@ -39,7 +39,7 @@ func (q *Queries) DeleteBalanceRecord(ctx context.Context, id int64) error {
 }
 
 const listBalanceRecords = `-- name: ListBalanceRecords :many
-select id, amount, date, origin_tract
+select id, amount, date
 from balance_records
 `
 
@@ -52,12 +52,7 @@ func (q *Queries) ListBalanceRecords(ctx context.Context) ([]BalanceRecord, erro
 	var items []BalanceRecord
 	for rows.Next() {
 		var i BalanceRecord
-		if err := rows.Scan(
-			&i.ID,
-			&i.Amount,
-			&i.Date,
-			&i.OriginTract,
-		); err != nil {
+		if err := rows.Scan(&i.ID, &i.Amount, &i.Date); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

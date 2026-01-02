@@ -14,6 +14,7 @@ import (
 	"github.com/oexlkinq/wealth_tracker/cmd/target"
 	"github.com/oexlkinq/wealth_tracker/internal/app"
 	"github.com/oexlkinq/wealth_tracker/internal/calc"
+	"github.com/oexlkinq/wealth_tracker/internal/tractsgen"
 	"github.com/spf13/cobra"
 )
 
@@ -22,7 +23,6 @@ func init() {
 	rootCmd.AddCommand(target.TargetCmd)
 	rootCmd.AddCommand(rtract.RtractCmd)
 	rootCmd.AddCommand(setup.SetupCmd)
-	rootCmd.AddCommand(testCmd)
 }
 
 // rootCmd represents the base command when called without any subcommands
@@ -34,6 +34,8 @@ var rootCmd = &cobra.Command{
 	RunE: app.MakeCmdRunEFunc(func(cmd *cobra.Command, args []string, ctx context.Context, app *app.App) error {
 		q := app.Queries
 
+		tg := tractsgen.New(app.Repo)
+
 		// удалить сгенерированные транзакции. балансы тоже удалятся изза cascade
 		err := q.DeleteGeneratedTracts(ctx)
 		if err != nil {
@@ -41,7 +43,7 @@ var rootCmd = &cobra.Command{
 		}
 
 		// расчёт
-		tris, err := calc.Calc(ctx, q)
+		tris, err := calc.Calc(ctx, app.Repo, tg)
 		if err != nil {
 			return fmt.Errorf("calc targets reach info: %w", err)
 		}

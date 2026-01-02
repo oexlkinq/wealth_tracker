@@ -7,31 +7,34 @@ package db_api
 
 import (
 	"context"
+	"database/sql"
 	"time"
 )
 
 const createTract = `-- name: CreateTract :one
 insert into tracts (
-    type, date, amount, acked
+    date, amount, acked, target_id, rtract_id
 ) values (
-    ?, ?, ?, ?
+    ?, ?, ?, ?, ?
 )
 returning id
 `
 
 type CreateTractParams struct {
-	Type   string
-	Date   time.Time
-	Amount float64
-	Acked  bool
+	Date     time.Time
+	Amount   float64
+	Acked    bool
+	TargetID sql.NullInt64
+	RtractID sql.NullInt64
 }
 
 func (q *Queries) CreateTract(ctx context.Context, arg CreateTractParams) (int64, error) {
 	row := q.db.QueryRowContext(ctx, createTract,
-		arg.Type,
 		arg.Date,
 		arg.Amount,
 		arg.Acked,
+		arg.TargetID,
+		arg.RtractID,
 	)
 	var id int64
 	err := row.Scan(&id)

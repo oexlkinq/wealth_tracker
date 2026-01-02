@@ -3,6 +3,7 @@ module github.com/oexlkinq/wealth_tracker
 go 1.25.2
 
 require (
+	github.com/jmoiron/sqlx v1.4.0
 	github.com/pressly/goose/v3 v3.26.0
 	github.com/spf13/cobra v1.10.1
 	github.com/teambition/rrule-go v1.8.2

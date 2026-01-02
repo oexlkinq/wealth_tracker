@@ -2,18 +2,19 @@
 -- +goose StatementBegin
 create table if not exists tracts (
     id integer primary key,
-    type text not null,
     date date not null,
     amount real not null,
-    acked boolean not null
+    acked boolean not null,
+    target_id integer references targets(id) on delete cascade on update cascade,
+    rtract_id integer references rtracts(id) on delete cascade on update cascade,
+    check (target_id is not null or rtract_id is not null)
 );
 
 create table if not exists targets (
     id integer primary key,
     amount real not null,
     desc text not null,
-    "order" integer unique not null,
-    tract_id integer references tracts(id) on delete set null on update cascade
+    "order" integer unique not null
 );
 
 create table if not exists rtracts (
@@ -22,11 +23,6 @@ create table if not exists rtracts (
     desc text not null,
     amount real not null,
     reqs_ack boolean not null
-);
-
-create table if not exists rtracts_to_tracts (
-    rtract_id integer not null references rtracts(id) on delete cascade on update cascade,
-    tract_id integer not null references tracts(id) on delete cascade on update cascade
 );
 
 create table if not exists balance_records (
@@ -42,6 +38,5 @@ create table if not exists balance_records (
 drop table tracts;
 drop table targets;
 drop table rtracts;
-drop table rtracts_to_tracts;
 drop table balance_records;
 -- +goose StatementEnd

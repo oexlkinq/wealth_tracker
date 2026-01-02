@@ -1,7 +1,7 @@
 -- name: CreateTract :one
 insert into tracts (
-    type, date, amount, acked
+    date, amount, acked, target_id, rtract_id
 ) values (
-    ?, ?, ?, ?
+    ?, ?, ?, ?, ?
 )
 returning id;
