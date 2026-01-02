@@ -83,7 +83,7 @@ func randRRule() string {
 
 	r, err := rrule.NewRRule(rrule.ROption{
 		Freq:     rrule.MONTHLY,
-		Dtstart:  time.Now().Add(time.Hour * 24 * time.Duration(daysShift)),
+		Dtstart:  time.Now().Truncate(time.Hour * 24).Add(time.Hour * 24 * time.Duration(daysShift)),
 		Interval: 1,
 	})
 	if err != nil {
