@@ -5,11 +5,11 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/oexlkinq/wealth_tracker/internal/db"
 	"github.com/oexlkinq/wealth_tracker/internal/db/db_api"
 	"github.com/oexlkinq/wealth_tracker/internal/repos"
 	"github.com/spf13/cobra"
+	"github.com/vinovest/sqlx"
 	_ "modernc.org/sqlite"
 )
 

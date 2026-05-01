@@ -5,3 +5,5 @@
 /data.yaml
 /wealth_tracker
 /.vscode
+/*.md
+!/README.md
