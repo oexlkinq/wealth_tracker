@@ -8,12 +8,3 @@ setup: clean migrate build
 
 build:
 	go build
-
-migrate:
-	goose -dir ./internal/db/migrations sqlite3 ./appdata/wealth_tracker.db up
-
-clean:
-	rm -rf ./appdata/wealth_tracker.db ./.gen ./wealth_tracker
-
-sql:
-	sqlite3 appdata/wealth_tracker.db
