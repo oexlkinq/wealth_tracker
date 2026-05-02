@@ -5,36 +5,29 @@
 package db_api
 
 import (
-	"database/sql"
-	"time"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type BalanceRecord struct {
-	ID     int64
-	Amount float64
-	Date   time.Time
-}
-
-type Rtract struct {
-	ID      int64
-	Rrule   string
-	Desc    string
+type Goal struct {
+	ID      int32
 	Amount  float64
-	ReqsAck bool
+	Comment pgtype.Text
+	Hidden  bool
+	Index   int32
 }
 
-type Target struct {
-	ID     int64
-	Amount float64
-	Desc   string
-	Order  int64
+type Rtxn struct {
+	ID      int32
+	Amount  float64
+	Comment pgtype.Text
+	Rrule   string
 }
 
-type Tract struct {
-	ID       int64
-	Date     time.Time
-	Amount   float64
-	Acked    bool
-	TargetID sql.NullInt64
-	RtractID sql.NullInt64
+type Txn struct {
+	ID      int32
+	Amount  float64
+	Comment pgtype.Text
+	Ts      pgtype.Timestamptz
+	RtxnID  pgtype.Int4
+	GoalID  pgtype.Int4
 }
