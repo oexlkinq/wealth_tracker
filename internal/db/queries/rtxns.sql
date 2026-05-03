@@ -18,4 +18,4 @@ with latest_txns as (
 )
 select rt.*, t.ts
 from rtxns rt
-join latest_txns t on rt.id = t.rtxn_id;
+left join latest_txns t on rt.id = t.rtxn_id;

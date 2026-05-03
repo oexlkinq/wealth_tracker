@@ -69,7 +69,7 @@ with latest_txns as (
 )
 select rt.id, rt.amount, rt.comment, rt.rrule, t.ts
 from rtxns rt
-join latest_txns t on rt.id = t.rtxn_id
+left join latest_txns t on rt.id = t.rtxn_id
 `
 
 type ListRtxnsEndsRow struct {
