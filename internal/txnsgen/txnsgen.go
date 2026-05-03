@@ -1,4 +1,4 @@
-package tractsgen
+package txnsgen
 
 import (
 	"context"
@@ -14,15 +14,15 @@ type Repo interface {
 	CreateTxn(ctx context.Context, arg db_api.CreateTxnParams) (int64, error)
 }
 
-type tractsgen struct {
+type txnsGen struct {
 	repo Repo
 }
 
-func New(repos Repo) *tractsgen {
-	return &tractsgen{repos}
+func New(repos Repo) *txnsGen {
+	return &txnsGen{repos}
 }
 
-func (v *tractsgen) GenUpTo(ctx context.Context, until time.Time) error {
+func (v *txnsGen) GenUpTo(ctx context.Context, until time.Time) error {
 	rows, err := v.repo.ListRtxnsEnds(ctx)
 	if err != nil {
 		return err
@@ -40,9 +40,9 @@ func (v *tractsgen) GenUpTo(ctx context.Context, until time.Time) error {
 
 		rr.Until(until)
 
-		for _, occ := range rr.All() {
+		for _, nextTime := range rr.All() {
 			_, err := v.repo.CreateTxn(ctx, db_api.CreateTxnParams{
-				Ts:     pgtype.Timestamptz{Time: occ},
+				Ts:     pgtype.Timestamptz{Time: nextTime},
 				Amount: row.Amount,
 				RtxnID: pgtype.Int4{Int32: row.ID},
 			})
