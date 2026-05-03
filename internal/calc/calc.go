@@ -2,11 +2,11 @@ package calc
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/oexlkinq/wealth_tracker/internal/db/db_api"
+	"github.com/oexlkinq/wealth_tracker/internal/txnsgen"
 )
 
 type GoalReachInfo struct {
@@ -15,14 +15,18 @@ type GoalReachInfo struct {
 }
 
 type Repo interface {
-	ListGoalsForCalc(ctx context.Context) ([]db_api.Goal, error)
+	ListGoalsForCalc(ctx context.Context) ([]db_api.ListGoalsForCalcRow, error)
 	GetGoalReachTs(ctx context.Context, target float64) ([]pgtype.Timestamptz, error)
-	CreateTxn(ctx context.Context, arg db_api.CreateTxnParams) (int64, error)
+	CreateTxn(ctx context.Context, arg db_api.CreateTxnParams) (int32, error)
 }
 
+var _ Repo = (*db_api.Queries)(nil)
+
 type TxnsGen interface {
-	GenUpTo(ctx context.Context, until time.Time) error
+	GenNextRange(ctx context.Context) error
 }
+
+var _ TxnsGen = (*txnsgen.TxnsGen)(nil)
 
 func Calc(ctx context.Context, repo Repo, tg TxnsGen) ([]GoalReachInfo, error) {
 	goals, err := repo.ListGoalsForCalc(ctx)
@@ -30,48 +34,51 @@ func Calc(ctx context.Context, repo Repo, tg TxnsGen) ([]GoalReachInfo, error) {
 		return nil, err
 	}
 
-	generatedUntil := time.Now().Truncate(time.Hour * 24)
-
 	gris := make([]GoalReachInfo, len(goals))
 	for i, goal := range goals {
-		var ts []pgtype.Timestamptz
+		var ts pgtype.Timestamptz
+
 		for i := range 100 {
 			if i == 100-1 {
 				panic("too many retries")
 			}
 
-			ts, err = repo.GetGoalReachTs(ctx, goal.Amount)
+			tsRows, err := repo.GetGoalReachTs(ctx, goal.Amount.Float64)
 			if err != nil {
 				return nil, err
 			}
 
-			if len(ts) == 0 {
+			// дата достижения цели найдена
+			if len(tsRows) != 0 {
+				ts = tsRows[0]
 				break
 			}
 
-			generatedUntil = generatedUntil.Add(time.Hour * 24 * 365)
-
-			err = tg.GenUpTo(ctx, generatedUntil)
+			// иначе сгенерить следующую пачку транзакций
+			err = tg.GenNextRange(ctx)
 			if err != nil {
 				return nil, err
 			}
-
-			fmt.Println("pushed until", generatedUntil)
 		}
 
 		_, err := repo.CreateTxn(ctx, db_api.CreateTxnParams{
-			Amount:  goal.Amount,
-			Comment: pgtype.Text{String: "TODO", Valid: true},
-			Ts:      ts[0],
-			RtxnID:  pgtype.Int4{Int32: goal.ID},
+			Amount:  goal.Amount.Float64,
+			Comment: pgtype.Text{String: "goal done", Valid: true},
+			Ts:      ts,
+			RtxnID:  goal.ID,
 		})
 		if err != nil {
 			return nil, err
 		}
 
 		gris[i] = GoalReachInfo{
-			Goal:      goals[i],
-			ReachDate: ts[0].Time,
+			Goal: db_api.Goal{
+				ID:      goal.ID.Int32,
+				Amount:  goal.Amount.Float64,
+				Comment: goal.Comment,
+				Index:   goal.Index.Int32,
+			},
+			ReachDate: ts.Time,
 		}
 	}
 
