@@ -2,16 +2,16 @@ package tractsgen
 
 import (
 	"context"
-	"database/sql"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/oexlkinq/wealth_tracker/internal/db/db_api"
 	"github.com/teambition/rrule-go"
 )
 
 type Repo interface {
-	ListRtractsWithLastTracts(ctx context.Context) ([]db_api.ListRtractsWithLastTractsRow, error)
-	CreateTract(ctx context.Context, arg db_api.CreateTractParams) (int64, error)
+	ListRtxnsEnds(ctx context.Context) ([]db_api.ListRtxnsEndsRow, error)
+	CreateTxn(ctx context.Context, arg db_api.CreateTxnParams) (int64, error)
 }
 
 type tractsgen struct {
@@ -23,7 +23,7 @@ func New(repos Repo) *tractsgen {
 }
 
 func (v *tractsgen) GenUpTo(ctx context.Context, until time.Time) error {
-	rows, err := v.repo.ListRtractsWithLastTracts(ctx)
+	rows, err := v.repo.ListRtxnsEnds(ctx)
 	if err != nil {
 		return err
 	}
@@ -34,18 +34,17 @@ func (v *tractsgen) GenUpTo(ctx context.Context, until time.Time) error {
 			panic(err)
 		}
 
-		if row.Date.Valid {
-			rr.DTStart(row.Date.Time)
+		if row.Ts.Valid {
+			rr.DTStart(row.Ts.Time)
 		}
 
 		rr.Until(until)
 
 		for _, occ := range rr.All() {
-			_, err := v.repo.CreateTract(ctx, db_api.CreateTractParams{
-				Date:     occ,
-				Amount:   row.Amount,
-				Acked:    false,
-				RtractID: sql.NullInt64{Int64: row.ID, Valid: true},
+			_, err := v.repo.CreateTxn(ctx, db_api.CreateTxnParams{
+				Ts:     pgtype.Timestamptz{Time: occ},
+				Amount: row.Amount,
+				RtxnID: pgtype.Int4{Int32: row.ID},
 			})
 			if err != nil {
 				return err

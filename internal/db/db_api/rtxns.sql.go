@@ -77,7 +77,7 @@ type ListRtxnsEndsRow struct {
 	Amount  float64
 	Comment pgtype.Text
 	Rrule   string
-	Ts      interface{}
+	Ts      pgtype.Timestamptz
 }
 
 func (q *Queries) ListRtxnsEnds(ctx context.Context) ([]ListRtxnsEndsRow, error) {

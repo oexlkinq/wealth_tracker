@@ -2,22 +2,22 @@ package calc
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/oexlkinq/wealth_tracker/internal/db/db_api"
 )
 
 type TargetReachInfo struct {
-	Target    db_api.Target
+	Target    db_api.Goal
 	ReachDate time.Time
 }
 
 type Repo interface {
-	ListTargetsForCalc(ctx context.Context) ([]db_api.Target, error)
-	GetReachingTargetDate(ctx context.Context, amount float64) (time.Time, error)
-	CreateTract(ctx context.Context, arg db_api.CreateTractParams) (int64, error)
+	ListGoalsForCalc(ctx context.Context) ([]db_api.Goal, error)
+	GetGoalReachTs(ctx context.Context, target float64) ([]pgtype.Timestamptz, error)
+	CreateTxn(ctx context.Context, arg db_api.CreateTxnParams) (int64, error)
 }
 
 type Tractsgen interface {
@@ -25,7 +25,7 @@ type Tractsgen interface {
 }
 
 func Calc(ctx context.Context, repo Repo, tg Tractsgen) ([]TargetReachInfo, error) {
-	targets, err := repo.ListTargetsForCalc(ctx)
+	targets, err := repo.ListGoalsForCalc(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -34,18 +34,18 @@ func Calc(ctx context.Context, repo Repo, tg Tractsgen) ([]TargetReachInfo, erro
 
 	tris := make([]TargetReachInfo, len(targets))
 	for i, target := range targets {
-		var date time.Time
+		var ts []pgtype.Timestamptz
 		for i := range 100 {
 			if i == 100-1 {
 				panic("too many retries")
 			}
 
-			date, err = repo.GetReachingTargetDate(ctx, target.Amount)
+			ts, err = repo.GetGoalReachTs(ctx, target.Amount)
 			if err != nil {
 				return nil, err
 			}
 
-			if !date.IsZero() {
+			if len(ts) == 0 {
 				break
 			}
 
@@ -59,11 +59,11 @@ func Calc(ctx context.Context, repo Repo, tg Tractsgen) ([]TargetReachInfo, erro
 			fmt.Println("pushed until", generatedUntil)
 		}
 
-		_, err := repo.CreateTract(ctx, db_api.CreateTractParams{
-			Date:     date,
-			Amount:   target.Amount,
-			Acked:    false,
-			TargetID: sql.NullInt64{Int64: target.ID, Valid: true},
+		_, err := repo.CreateTxn(ctx, db_api.CreateTxnParams{
+			Amount:  target.Amount,
+			Comment: pgtype.Text{String: "TODO", Valid: true},
+			Ts:      ts[0],
+			RtxnID:  pgtype.Int4{Int32: target.ID},
 		})
 		if err != nil {
 			return nil, err
@@ -71,7 +71,7 @@ func Calc(ctx context.Context, repo Repo, tg Tractsgen) ([]TargetReachInfo, erro
 
 		tris[i] = TargetReachInfo{
 			Target:    targets[i],
-			ReachDate: date,
+			ReachDate: ts[0].Time,
 		}
 	}
 
