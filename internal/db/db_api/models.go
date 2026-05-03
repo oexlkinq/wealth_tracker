@@ -12,7 +12,6 @@ type Goal struct {
 	ID      int32
 	Amount  float64
 	Comment pgtype.Text
-	Hidden  bool
 	Index   int32
 }
 

@@ -13,26 +13,20 @@ import (
 
 const createGoal = `-- name: CreateGoal :exec
 insert into goals (
-    amount, comment, hidden, index
+    amount, comment, index
 ) values (
-    $1, $2, $3, $4
+    $1, $2, $3
 )
 `
 
 type CreateGoalParams struct {
 	Amount  float64
 	Comment pgtype.Text
-	Hidden  bool
 	Index   int32
 }
 
 func (q *Queries) CreateGoal(ctx context.Context, arg CreateGoalParams) error {
-	_, err := q.db.Exec(ctx, createGoal,
-		arg.Amount,
-		arg.Comment,
-		arg.Hidden,
-		arg.Index,
-	)
+	_, err := q.db.Exec(ctx, createGoal, arg.Amount, arg.Comment, arg.Index)
 	return err
 }
 
@@ -59,7 +53,7 @@ func (q *Queries) DeleteGoalTxnsSince(ctx context.Context, ts pgtype.Timestamptz
 }
 
 const listGoals = `-- name: ListGoals :many
-select id, amount, comment, hidden, index
+select id, amount, comment, index
 from goals
 `
 
@@ -76,7 +70,6 @@ func (q *Queries) ListGoals(ctx context.Context) ([]Goal, error) {
 			&i.ID,
 			&i.Amount,
 			&i.Comment,
-			&i.Hidden,
 			&i.Index,
 		); err != nil {
 			return nil, err
@@ -90,7 +83,7 @@ func (q *Queries) ListGoals(ctx context.Context) ([]Goal, error) {
 }
 
 const listGoalsForCalc = `-- name: ListGoalsForCalc :many
-select goals.id, goals.amount, goals.comment, goals.hidden, goals.index
+select goals.id, goals.amount, goals.comment, goals.index
 from goals
 RIGHT JOIN txns on txns.goal_id = goals.id
 order by goals.index
@@ -100,7 +93,6 @@ type ListGoalsForCalcRow struct {
 	ID      pgtype.Int4
 	Amount  pgtype.Float8
 	Comment pgtype.Text
-	Hidden  pgtype.Bool
 	Index   pgtype.Int4
 }
 
@@ -117,7 +109,6 @@ func (q *Queries) ListGoalsForCalc(ctx context.Context) ([]ListGoalsForCalcRow, 
 			&i.ID,
 			&i.Amount,
 			&i.Comment,
-			&i.Hidden,
 			&i.Index,
 		); err != nil {
 			return nil, err

@@ -4,7 +4,6 @@ create table goals (
     id int generated always as identity primary key,
     amount float not null,
     comment text,
-    hidden bool not null,
     index int unique not null
 );
 

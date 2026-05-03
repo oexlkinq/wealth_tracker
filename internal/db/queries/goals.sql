@@ -1,8 +1,8 @@
 -- name: CreateGoal :exec
 insert into goals (
-    amount, comment, hidden, index
+    amount, comment, index
 ) values (
-    $1, $2, $3, $4
+    $1, $2, $3
 );
 
 -- name: ListGoals :many
