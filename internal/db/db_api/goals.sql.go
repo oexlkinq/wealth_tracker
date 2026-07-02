@@ -85,26 +85,20 @@ func (q *Queries) ListGoals(ctx context.Context) ([]Goal, error) {
 const listGoalsForCalc = `-- name: ListGoalsForCalc :many
 select goals.id, goals.amount, goals.comment, goals.index
 from goals
-RIGHT JOIN txns on txns.goal_id = goals.id
+left join txns on txns.goal_id = goals.id
+where txns.goal_id is null
 order by goals.index
 `
 
-type ListGoalsForCalcRow struct {
-	ID      pgtype.Int4
-	Amount  pgtype.Float8
-	Comment pgtype.Text
-	Index   pgtype.Int4
-}
-
-func (q *Queries) ListGoalsForCalc(ctx context.Context) ([]ListGoalsForCalcRow, error) {
+func (q *Queries) ListGoalsForCalc(ctx context.Context) ([]Goal, error) {
 	rows, err := q.db.Query(ctx, listGoalsForCalc)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListGoalsForCalcRow
+	var items []Goal
 	for rows.Next() {
-		var i ListGoalsForCalcRow
+		var i Goal
 		if err := rows.Scan(
 			&i.ID,
 			&i.Amount,

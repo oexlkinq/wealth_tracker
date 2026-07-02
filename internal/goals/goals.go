@@ -1,4 +1,4 @@
-package calc
+package goals
 
 import (
 	"context"
@@ -15,7 +15,7 @@ type GoalReachInfo struct {
 }
 
 type Repo interface {
-	ListGoalsForCalc(ctx context.Context) ([]db_api.ListGoalsForCalcRow, error)
+	ListGoalsForCalc(ctx context.Context) ([]db_api.Goal, error)
 	GetGoalReachTs(ctx context.Context, target float64) ([]pgtype.Timestamptz, error)
 	CreateTxn(ctx context.Context, arg db_api.CreateTxnParams) (int32, error)
 }
@@ -28,8 +28,20 @@ type TxnsGen interface {
 
 var _ TxnsGen = (*txnsgen.TxnsGen)(nil)
 
-func Calc(ctx context.Context, repo Repo, tg TxnsGen) ([]GoalReachInfo, error) {
-	goals, err := repo.ListGoalsForCalc(ctx)
+type GoalsSvc struct {
+	repo Repo
+	tg   TxnsGen
+}
+
+func New(repo Repo, tg TxnsGen) (*GoalsSvc, error) {
+	return &GoalsSvc{
+		repo: repo,
+		tg:   tg,
+	}, nil
+}
+
+func (svc *GoalsSvc) CalcGoals(ctx context.Context) ([]GoalReachInfo, error) {
+	goals, err := svc.repo.ListGoalsForCalc(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +55,7 @@ func Calc(ctx context.Context, repo Repo, tg TxnsGen) ([]GoalReachInfo, error) {
 				panic("too many retries")
 			}
 
-			tsRows, err := repo.GetGoalReachTs(ctx, goal.Amount.Float64)
+			tsRows, err := svc.repo.GetGoalReachTs(ctx, goal.Amount)
 			if err != nil {
 				return nil, err
 			}
@@ -55,29 +67,24 @@ func Calc(ctx context.Context, repo Repo, tg TxnsGen) ([]GoalReachInfo, error) {
 			}
 
 			// иначе сгенерить следующую пачку транзакций
-			err = tg.GenNextRange(ctx)
+			err = svc.tg.GenNextRange(ctx)
 			if err != nil {
 				return nil, err
 			}
 		}
 
-		_, err := repo.CreateTxn(ctx, db_api.CreateTxnParams{
-			Amount:  goal.Amount.Float64,
+		_, err := svc.repo.CreateTxn(ctx, db_api.CreateTxnParams{
+			Amount:  -goal.Amount,
 			Comment: pgtype.Text{String: "goal done", Valid: true},
 			Ts:      ts,
-			RtxnID:  goal.ID,
+			GoalID:  pgtype.Int4{Int32: goal.ID, Valid: true},
 		})
 		if err != nil {
 			return nil, err
 		}
 
 		gris[i] = GoalReachInfo{
-			Goal: db_api.Goal{
-				ID:      goal.ID.Int32,
-				Amount:  goal.Amount.Float64,
-				Comment: goal.Comment,
-				Index:   goal.Index.Int32,
-			},
+			Goal:      goal,
 			ReachDate: ts.Time,
 		}
 	}

@@ -22,5 +22,6 @@ where
 -- name: ListGoalsForCalc :many
 select goals.*
 from goals
-RIGHT JOIN txns on txns.goal_id = goals.id
+left join txns on txns.goal_id = goals.id
+where txns.goal_id is null
 order by goals.index;

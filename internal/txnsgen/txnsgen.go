@@ -50,9 +50,9 @@ func (v *TxnsGen) GenNextRange(ctx context.Context) error {
 
 		for _, nextTime := range rr.All() {
 			_, err := v.repo.CreateTxn(ctx, db_api.CreateTxnParams{
-				Ts:     pgtype.Timestamptz{Time: nextTime},
+				Ts:     pgtype.Timestamptz{Time: nextTime, Valid: true},
 				Amount: row.Amount,
-				RtxnID: pgtype.Int4{Int32: row.ID},
+				RtxnID: pgtype.Int4{Int32: row.ID, Valid: true},
 			})
 			if err != nil {
 				return err

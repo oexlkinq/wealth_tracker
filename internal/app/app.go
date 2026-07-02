@@ -3,9 +3,9 @@ package app
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/oexlkinq/wealth_tracker/internal/config"
 	"github.com/oexlkinq/wealth_tracker/internal/db"
 	"github.com/oexlkinq/wealth_tracker/internal/db/db_api"
 	"github.com/spf13/cobra"
@@ -18,10 +18,7 @@ type App struct {
 }
 
 func New(ctx context.Context) (*App, error) {
-	// TODO: вынести это в .env или в конфиг и юзать viper
-	pgConnStr := os.Getenv("POSTGRES_DBSTRING")
-
-	pgc, err := pgx.Connect(ctx, pgConnStr)
+	pgc, err := pgx.Connect(ctx, config.POSTGRES_DBSTRING)
 	if err != nil {
 		return nil, err
 	}
@@ -31,19 +28,9 @@ func New(ctx context.Context) (*App, error) {
 		return nil, err
 	}
 
-	queries := db_api.New(pgc)
-
-	tx, err := pgc.Begin(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	qtx := queries.WithTx(tx)
-
 	return &App{
 		DB:      pgc,
-		Queries: qtx,
-		Tx:      tx,
+		Queries: db_api.New(pgc),
 	}, nil
 }
 

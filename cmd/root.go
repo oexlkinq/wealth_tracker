@@ -13,7 +13,7 @@ import (
 	"github.com/oexlkinq/wealth_tracker/cmd/setup"
 	"github.com/oexlkinq/wealth_tracker/cmd/target"
 	"github.com/oexlkinq/wealth_tracker/internal/app"
-	"github.com/oexlkinq/wealth_tracker/internal/calc"
+	"github.com/oexlkinq/wealth_tracker/internal/goals"
 	"github.com/oexlkinq/wealth_tracker/internal/txnsgen"
 	"github.com/spf13/cobra"
 )
@@ -43,7 +43,7 @@ var rootCmd = &cobra.Command{
 		}
 
 		// расчёт
-		tris, err := calc.Calc(ctx, q, tg)
+		tris, err := goals.CalcGoals(ctx, q, tg)
 		if err != nil {
 			return fmt.Errorf("calc targets reach info: %w", err)
 		}
